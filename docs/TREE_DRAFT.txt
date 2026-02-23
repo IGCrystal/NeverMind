@@ -1,0 +1,41 @@
+.
+├── .clang-format
+├── .github
+│   ├── pull_request_template.md
+│   └── workflows
+│       └── ci.yml
+├── .gitignore
+├── ARCHITECTURE.md
+├── LICENSE
+├── Makefile
+├── README.md
+├── boot
+│   └── entry.S
+├── build.sh
+├── docs
+│   ├── TREE_DRAFT.txt
+│   └── milestones
+│       └── M1.md
+├── grub
+│   └── grub.cfg
+├── include
+│   └── nm
+│       ├── console.h
+│       ├── gdt.h
+│       ├── idt.h
+│       ├── io.h
+│       ├── string.h
+│       └── tss.h
+├── kernel
+│   ├── console.c
+│   ├── gdt.c
+│   ├── idt.c
+│   ├── kmain.c
+│   ├── string.c
+│   └── tss.c
+├── linker.ld
+├── scripts
+│   ├── run_qemu_bios.sh
+│   └── run_qemu_uefi.sh
+└── tests
+    └── smoke_m1.sh

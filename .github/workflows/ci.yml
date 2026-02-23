@@ -1,0 +1,43 @@
+name: ci
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  build-and-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install toolchain and emulator
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            gcc binutils make grub-pc-bin grub-common xorriso \
+            qemu-system-x86 ovmf cppcheck clang-tools
+
+      - name: Build M1 image
+        run: make all
+
+      - name: Static analysis (M1 scope)
+        run: |
+          cppcheck --enable=warning,style,performance --error-exitcode=1 \
+            --inline-suppr --suppress=missingIncludeSystem kernel include
+          scan-build --status-bugs make clean all
+
+      - name: Smoke test in QEMU
+        run: make smoke
+
+      - name: Upload test logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qemu-logs
+          path: build/test-logs/
