@@ -111,7 +111,7 @@ test:
 	$(BUILD_DIR)/test_shell
 	$(CC) -std=c11 -Wall -Wextra -Werror -O2 \
 	  tests/unit/test_syscall_m9.c kernel/syscall/syscall.c kernel/proc/task.c kernel/string.c \
-	  kernel/fs/vfs.c -Iinclude -DNEVERMIND_HOST_TEST -o $(BUILD_DIR)/test_syscall_m9
+	  kernel/fs/vfs.c kernel/fs/tmpfs.c -Iinclude -DNEVERMIND_HOST_TEST -o $(BUILD_DIR)/test_syscall_m9
 	$(BUILD_DIR)/test_syscall_m9
 
 integration: test

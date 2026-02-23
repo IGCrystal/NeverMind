@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include "nm/fs.h"
 #include "nm/proc.h"
 #include "nm/syscall.h"
 
@@ -69,6 +70,12 @@ static void test_fork_exec(void)
 {
     proc_init();
     syscall_init();
+    fs_init();
+    assert(fs_mount_root(tmpfs_filesystem()) == 0);
+
+    int fd = fs_open("/sh", NM_O_CREAT | NM_O_RDWR, 0644);
+    assert(fd >= 0);
+    assert(fs_close(fd) == 0);
 
     struct nm_task *parent = task_current();
     assert(parent != 0);
@@ -82,10 +89,12 @@ static void test_fork_exec(void)
     assert(child->regs.rax == 0);
 
     proc_set_current(child);
-    const char *prog = "init.bin";
-    assert(syscall_dispatch(NM_SYS_EXEC, (uint64_t)(uintptr_t)prog, 0x1234, 0, 0, 0, 0) == 0);
-    assert(child->entry_name == prog);
-    assert(child->regs.rip == 0x1234);
+    assert(syscall_dispatch(NM_SYS_EXEC, (uint64_t)(uintptr_t)"/sh", 0, 0, 0, 0, 0) == 0);
+    assert(child->entry_name != 0);
+    assert(child->entry_name[0] == '/');
+    assert(child->regs.rip == 0x1100);
+
+    assert(syscall_dispatch(NM_SYS_EXEC, (uint64_t)(uintptr_t)"/not-found", 0, 0, 0, 0, 0) == -1);
 }
 
 int main(void)
