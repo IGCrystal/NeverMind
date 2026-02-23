@@ -377,6 +377,59 @@ static int64_t sys_dup2(uint64_t oldfd, uint64_t newfd, uint64_t a3, uint64_t a4
     return (int64_t)newfd;
 }
 
+static int64_t sys_fork(uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
+                        uint64_t a6)
+{
+    (void)a1;
+    (void)a2;
+    (void)a3;
+    (void)a4;
+    (void)a5;
+    (void)a6;
+
+    struct nm_task *parent = task_current();
+    if (parent == 0) {
+        return -1;
+    }
+
+    struct nm_task *child = proc_fork_current();
+    if (child == 0) {
+        return -1;
+    }
+
+    for (int i = 0; i < NM_MAX_FDS; i++) {
+        int32_t v = child->fd_table[i];
+        int pipe_id = 0;
+        int is_write_end = 0;
+        if (decode_pipe_fd(v, &pipe_id, &is_write_end)) {
+            if (is_write_end) {
+                pipe_table[pipe_id].writers++;
+            } else {
+                pipe_table[pipe_id].readers++;
+            }
+        }
+    }
+
+    parent->regs.rax = (uint64_t)child->pid;
+    return child->pid;
+}
+
+static int64_t sys_exec(uint64_t name_ptr, uint64_t entry, uint64_t a3, uint64_t a4, uint64_t a5,
+                        uint64_t a6)
+{
+    (void)a3;
+    (void)a4;
+    (void)a5;
+    (void)a6;
+
+    if (name_ptr == 0) {
+        return -1;
+    }
+
+    const char *name = (const char *)(uintptr_t)name_ptr;
+    return proc_exec_current(name, entry);
+}
+
 void syscall_init(void)
 {
     for (size_t i = 0; i < NM_SYSCALL_MAX; i++) {
@@ -399,6 +452,8 @@ void syscall_init(void)
     (void)syscall_register(NM_SYS_WAITPID, sys_waitpid);
     (void)syscall_register(NM_SYS_PIPE, sys_pipe);
     (void)syscall_register(NM_SYS_DUP2, sys_dup2);
+    (void)syscall_register(NM_SYS_FORK, sys_fork);
+    (void)syscall_register(NM_SYS_EXEC, sys_exec);
 }
 
 int syscall_register(uint64_t nr, nm_syscall_handler_t fn)

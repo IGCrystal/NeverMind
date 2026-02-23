@@ -42,6 +42,18 @@ static struct nm_task *alloc_task_slot(void)
     return 0;
 }
 
+static uint8_t *alloc_task_stack(void)
+{
+#ifdef NEVERMIND_HOST_TEST
+    if (host_stack_cursor >= NM_MAX_TASKS) {
+        return 0;
+    }
+    return host_stacks[host_stack_cursor++];
+#else
+    return (uint8_t *)kmalloc(KSTACK_SIZE);
+#endif
+}
+
 void proc_init(void)
 {
     for (size_t i = 0; i < NM_MAX_TASKS; i++) {
@@ -86,18 +98,10 @@ struct nm_task *task_create_kernel_thread(const char *name, void (*entry)(void *
         return 0;
     }
 
-    uint8_t *kstack;
-#ifdef NEVERMIND_HOST_TEST
-    if (host_stack_cursor >= NM_MAX_TASKS) {
-        return 0;
-    }
-    kstack = host_stacks[host_stack_cursor++];
-#else
-    kstack = (uint8_t *)kmalloc(KSTACK_SIZE);
+    uint8_t *kstack = alloc_task_stack();
     if (kstack == 0) {
         return 0;
     }
-#endif
 
     task->pid = next_pid++;
     task->ppid = current_task ? current_task->pid : 0;
@@ -160,6 +164,49 @@ void nm_set_current_task(struct nm_task *task)
 void proc_set_current(struct nm_task *task)
 {
     current_task = task;
+}
+
+struct nm_task *proc_fork_current(void)
+{
+    if (current_task == 0) {
+        return 0;
+    }
+
+    struct nm_task *child = alloc_task_slot();
+    if (child == 0) {
+        return 0;
+    }
+
+    uint8_t *kstack = alloc_task_stack();
+    if (kstack == 0) {
+        return 0;
+    }
+
+    *child = *current_task;
+    child->pid = next_pid++;
+    child->ppid = current_task->pid;
+    child->state = NM_TASK_RUNNABLE;
+    child->exit_code = 0;
+    child->kernel_stack_top = (uint64_t *)(uintptr_t)(kstack + KSTACK_SIZE);
+    child->regs.rsp = (uint64_t)(uintptr_t)child->kernel_stack_top;
+    child->regs.rax = 0;
+
+    task_used++;
+    return child;
+}
+
+int proc_exec_current(const char *name, uint64_t entry)
+{
+    if (current_task == 0 || name == 0) {
+        return -1;
+    }
+
+    current_task->entry_name = name;
+    copy_name(current_task->name, name, NM_TASK_NAME_MAX);
+    if (entry != 0) {
+        current_task->regs.rip = entry;
+    }
+    return 0;
 }
 
 void proc_exit_current(int32_t code)

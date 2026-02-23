@@ -71,6 +71,8 @@ struct nm_task *task_by_pid(int32_t pid);
 struct nm_task *task_by_index(size_t index);
 size_t task_count(void);
 void proc_set_current(struct nm_task *task);
+struct nm_task *proc_fork_current(void);
+int proc_exec_current(const char *name, uint64_t entry);
 void proc_exit_current(int32_t code);
 int32_t proc_waitpid(int32_t pid, int32_t *status);
 

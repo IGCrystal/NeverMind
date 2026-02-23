@@ -65,10 +65,34 @@ static void test_exit_waitpid(void)
                             0, 0, 0, 0) == -1);
 }
 
+static void test_fork_exec(void)
+{
+    proc_init();
+    syscall_init();
+
+    struct nm_task *parent = task_current();
+    assert(parent != 0);
+
+    int64_t child_pid = syscall_dispatch(NM_SYS_FORK, 0, 0, 0, 0, 0, 0);
+    assert(child_pid > 0);
+
+    struct nm_task *child = task_by_pid((int32_t)child_pid);
+    assert(child != 0);
+    assert(child->ppid == parent->pid);
+    assert(child->regs.rax == 0);
+
+    proc_set_current(child);
+    const char *prog = "init.bin";
+    assert(syscall_dispatch(NM_SYS_EXEC, (uint64_t)(uintptr_t)prog, 0x1234, 0, 0, 0, 0) == 0);
+    assert(child->entry_name == prog);
+    assert(child->regs.rip == 0x1234);
+}
+
 int main(void)
 {
     test_pipe_and_dup2();
     test_exit_waitpid();
+    test_fork_exec();
     puts("test_syscall_m9: PASS");
     return 0;
 }
