@@ -19,7 +19,8 @@ use_file="$tmp_dir/used.txt"
 undef_file="$tmp_dir/undefined_used.txt"
 unused_file="$tmp_dir/unused_defined.txt"
 
-grep -E '^#define[[:space:]]+NM_E[A-Z0-9_]+' "$ERRNO_HEADER" | awk '{print $2}' | sort -u > "$def_file"
+grep -E '^#define[[:space:]]+NM_E[A-Z0-9_]+[[:space:]]+[0-9]+' "$ERRNO_HEADER" \
+  | awk '{print $2}' | sort -u > "$def_file"
 
 if [[ ! -s "$def_file" ]]; then
   echo "errno usage lint failed: no NM_E* definitions found in $ERRNO_HEADER"
