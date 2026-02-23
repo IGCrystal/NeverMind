@@ -233,7 +233,7 @@ static void mark_range_available(uint64_t base, uint64_t length)
 {
     uint64_t start = (base + PAGE_SIZE - 1ULL) / PAGE_SIZE;
     uint64_t end = (base + length) / PAGE_SIZE;
-    if (end > MAX_FRAMES) {
+    if (end > frame_limit) {
         end = frame_limit;
     }
 
@@ -250,7 +250,7 @@ static void reserve_range(uint64_t base, uint64_t length)
 {
     uint64_t start = base / PAGE_SIZE;
     uint64_t end = (base + length + PAGE_SIZE - 1ULL) / PAGE_SIZE;
-    if (end > MAX_FRAMES) {
+    if (end > frame_limit) {
         end = frame_limit;
     }
 
@@ -358,6 +358,16 @@ void pmm_init_from_multiboot2(uint64_t mb2_info_ptr)
             }
         }
 
+        if (tag->type == MB2_TAG_MODULE && tag->size >= sizeof(struct mb2_tag_module)) {
+            const struct mb2_tag_module *module = (const struct mb2_tag_module *)tag;
+            if (module->mod_end > module->mod_start) {
+                uint64_t mod_end = (uint64_t)module->mod_end;
+                if (mod_end > highest_end) {
+                    highest_end = mod_end;
+                }
+            }
+        }
+
         cursor = next;
     }
 
@@ -397,6 +407,14 @@ void pmm_init_from_multiboot2(uint64_t mb2_info_ptr)
                         entry_ptr += mmap_tag->entry_size;
                     }
                 }
+            }
+        }
+
+        if (tag->type == MB2_TAG_MODULE && tag->size >= sizeof(struct mb2_tag_module)) {
+            const struct mb2_tag_module *module = (const struct mb2_tag_module *)tag;
+            if (module->mod_end > module->mod_start) {
+                reserve_range((uint64_t)module->mod_start,
+                              (uint64_t)(module->mod_end - module->mod_start));
             }
         }
 

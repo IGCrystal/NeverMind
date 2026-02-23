@@ -27,8 +27,16 @@ struct mb2_mmap_entry {
     uint32_t zero;
 };
 
+struct mb2_tag_module {
+    uint32_t type;
+    uint32_t size;
+    uint32_t mod_start;
+    uint32_t mod_end;
+};
+
 enum {
     MB2_TAG_END = 0,
+    MB2_TAG_MODULE = 3,
     MB2_TAG_MMAP = 6,
 };
 
