@@ -19,6 +19,20 @@ GPLv2-compatible，见 `LICENSE`。
 ./build.sh
 ```
 
+## 环境准备（推荐）
+
+- Ubuntu: `./scripts/setup_ubuntu.sh`
+- Windows + WSL: `powershell -ExecutionPolicy Bypass -File .\scripts\setup_wsl.ps1`
+
+也可使用容器复现：
+
+```bash
+docker build -t nevermind-dev .
+docker run --rm -it -v "$PWD":/workspace nevermind-dev
+```
+
+若在 Windows 主机看到 `stddef.h/stdint.h` 缺失红线，请在 VS Code 选择 C/C++ 配置为 `NeverMind-WSL`，并在 WSL 内执行构建。
+
 产物：
 
 - `build/kernel.elf`
@@ -110,3 +124,7 @@ boot: BIOS+UEFI via GRUB multiboot2
 本仓库于 YYYY-MM-DD 构建并在 QEMU vX.Y 上通过测试，工具链：clang vX.Y / gcc vX.Y，测试平台：Ubuntu XX，测试结果见 tests/results-YYYYMMDD/。
 
 当前声明见 `FINAL_DECLARATION.md`。
+
+## 贡献规范
+
+详见 `CONTRIBUTING.md`（Conventional Commits、PR 流程、发布规范）。

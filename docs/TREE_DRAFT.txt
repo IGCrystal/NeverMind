@@ -8,6 +8,8 @@
 ├── .gitignore
 ├── ARCHITECTURE.md
 ├── CHANGELOG.md
+├── CONTRIBUTING.md
+├── Dockerfile
 ├── FINAL_DECLARATION.md
 ├── LICENSE
 ├── Makefile
@@ -95,7 +97,9 @@
 ├── linker.ld
 ├── scripts
 │   ├── run_qemu_bios.sh
-│   └── run_qemu_uefi.sh
+│   ├── run_qemu_uefi.sh
+│   ├── setup_ubuntu.sh
+│   └── setup_wsl.ps1
 ├── tests
 │   ├── integration
 │   │   └── test_boot_shell.c

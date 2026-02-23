@@ -1,0 +1,11 @@
+{
+  "C_Cpp.default.includePath": [
+    "${workspaceFolder}/include",
+    "${workspaceFolder}"
+  ],
+  "C_Cpp.default.defines": [
+    "__x86_64__",
+    "__KERNEL__"
+  ],
+  "C_Cpp.errorSquiggles": "enabled"
+}
