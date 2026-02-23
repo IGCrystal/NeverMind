@@ -24,5 +24,7 @@ void tss_init(void)
     kernel_tss.reserved2 = 0;
     kernel_tss.reserved3 = 0;
     kernel_tss.iopb = sizeof(kernel_tss);
-    __asm__ volatile("ltr %0" : : "r"((uint16_t)0x18));
+
+    uint16_t tss_sel = 0x18;
+    __asm__ volatile("ltr %0" : : "m"(tss_sel) : "memory");
 }

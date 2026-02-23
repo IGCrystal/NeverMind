@@ -2,11 +2,20 @@ ARCH := x86_64
 BUILD_DIR := build
 ISO_DIR := $(BUILD_DIR)/isofiles
 
+DEBUG ?= 0
+
 CC ?= gcc
 LD ?= ld
 OBJCOPY ?= objcopy
 
-CFLAGS := -ffreestanding -fno-stack-protector -fno-pic -m64 -mno-red-zone -mcmodel=kernel -Wall -Wextra -Werror -Iinclude -std=c11 -O2
+CFLAGS_COMMON := -ffreestanding -fno-stack-protector -fno-pic -m64 -mno-red-zone -mcmodel=kernel -Wall -Wextra -Werror -Iinclude -std=c11
+ifeq ($(DEBUG),1)
+	CFLAGS_OPT := -O0 -g3
+else
+	CFLAGS_OPT := -O2
+endif
+
+CFLAGS := $(CFLAGS_COMMON) $(CFLAGS_OPT)
 ASFLAGS := -ffreestanding -fno-pic -m64 -Iinclude
 LDFLAGS := -nostdlib -z max-page-size=0x1000 -T linker.ld
 

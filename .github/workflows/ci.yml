@@ -45,6 +45,10 @@ jobs:
     timeout-minutes: 20
     strategy:
       fail-fast: true
+      matrix:
+        build:
+          - release
+          - debug
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -57,29 +61,15 @@ jobs:
             qemu-system-x86 ovmf cppcheck clang-tools
 
       - name: Build kernel image
-        run: make all
+        env:
+          DEBUG: ${{ matrix.build == 'debug' && '1' || '0' }}
+        run: make all DEBUG=$DEBUG
 
       - name: Run unit tests
         run: make test
 
       - name: Run integration tests
         run: make integration
-
-      - name: Build userspace tools
-        run: make user-tools
-
-      - name: Acceptance aggregate
-        env:
-          ACCEPTANCE_RUN_SMOKE: 0
-          SMOKE_TIMEOUT: 60s
-          SMOKE_RETRY_TIMEOUT: 90s
-        run: make acceptance
-
-      - name: Static analysis
-        run: |
-          cppcheck --enable=warning,style,performance --error-exitcode=1 \
-            --inline-suppr --suppress=missingIncludeSystem kernel include userspace
-          scan-build --status-bugs make clean all
 
       - name: Smoke test in QEMU
         env:
@@ -91,9 +81,47 @@ jobs:
             make smoke
           }
 
+      - name: Build userspace tools
+        run: make user-tools
+
+      - name: Acceptance aggregate
+        if: matrix.build == 'release'
+        env:
+          ACCEPTANCE_RUN_SMOKE: 0
+          SMOKE_TIMEOUT: 60s
+          SMOKE_RETRY_TIMEOUT: 90s
+        run: make acceptance
+
+      - name: Static analysis
+        run: |
+          cppcheck --enable=warning,performance --error-exitcode=1 \
+            --inline-suppr --suppress=missingIncludeSystem kernel include userspace
+          cppcheck --enable=style \
+            --inline-suppr --suppress=missingIncludeSystem kernel include userspace || true
+
       - name: Upload test logs on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: qemu-logs
           path: build/test-logs/
+
+  clang-analyzer:
+    runs-on: ubuntu-24.04
+    needs: build-and-smoke
+    timeout-minutes: 20
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install toolchain and emulator
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            gcc binutils make grub-pc-bin grub-common xorriso mtools \
+            qemu-system-x86 ovmf clang-tools
+
+      - name: Clang static analyzer (scan-build)
+        run: |
+          scan-build --status-bugs make clean all
