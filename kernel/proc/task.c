@@ -12,6 +12,7 @@ static struct nm_task task_table[NM_MAX_TASKS];
 static size_t task_used;
 static int32_t next_pid = 1;
 static struct nm_task *current_task;
+static volatile uint32_t proc_lock_word;
 
 #ifndef NEVERMIND_HOST_TEST
 extern void nm_kthread_trampoline(void);
@@ -34,6 +35,18 @@ static void copy_name(char *dst, const char *src, size_t max_len)
         dst[i] = src[i];
     }
     dst[i] = '\0';
+}
+
+static inline void proc_lock(void)
+{
+    while (__sync_lock_test_and_set(&proc_lock_word, 1U) != 0U) {
+        __asm__ volatile("pause");
+    }
+}
+
+static inline void proc_unlock(void)
+{
+    __sync_lock_release(&proc_lock_word);
 }
 
 static struct nm_task *alloc_task_slot(void)
@@ -72,6 +85,8 @@ static uint8_t *alloc_task_stack(void)
 
 void proc_init(void)
 {
+    proc_lock_word = 0;
+    proc_lock();
     for (size_t i = 0; i < NM_MAX_TASKS; i++) {
         task_table[i].state = NM_TASK_UNUSED;
         task_table[i].pid = 0;
@@ -113,17 +128,23 @@ void proc_init(void)
     }
     task_used = 1;
     current_task = bootstrap;
+    proc_unlock();
 }
 
 struct nm_task *task_create_kernel_thread(const char *name, void (*entry)(void *), void *arg)
 {
-    struct nm_task *task = alloc_task_slot();
-    if (task == 0) {
+    uint8_t *kstack = alloc_task_stack();
+    if (kstack == 0) {
         return 0;
     }
 
-    uint8_t *kstack = alloc_task_stack();
-    if (kstack == 0) {
+    proc_lock();
+    struct nm_task *task = alloc_task_slot();
+    if (task == 0) {
+        proc_unlock();
+#ifndef NEVERMIND_HOST_TEST
+        kfree(kstack);
+#endif
         return 0;
     }
 
@@ -172,63 +193,96 @@ struct nm_task *task_create_kernel_thread(const char *name, void (*entry)(void *
     }
 
     task_used++;
+    proc_unlock();
     return task;
 }
 
 struct nm_task *task_current(void)
 {
-    return current_task;
+    proc_lock();
+    struct nm_task *task = current_task;
+    proc_unlock();
+    return task;
 }
 
 struct nm_task *task_by_pid(int32_t pid)
 {
+    proc_lock();
     for (size_t i = 0; i < NM_MAX_TASKS; i++) {
         if (task_table[i].state != NM_TASK_UNUSED && task_table[i].pid == pid) {
+            proc_unlock();
             return &task_table[i];
         }
     }
+    proc_unlock();
     return 0;
 }
 
 struct nm_task *task_by_index(size_t index)
 {
+    proc_lock();
     if (index >= NM_MAX_TASKS) {
+        proc_unlock();
         return 0;
     }
     if (task_table[index].state == NM_TASK_UNUSED) {
+        proc_unlock();
         return 0;
     }
-    return &task_table[index];
+    struct nm_task *task = &task_table[index];
+    proc_unlock();
+    return task;
 }
 
 size_t task_count(void)
 {
-    return task_used;
+    proc_lock();
+    size_t n = task_used;
+    proc_unlock();
+    return n;
 }
 
 void nm_set_current_task(struct nm_task *task)
 {
+    proc_lock();
     current_task = task;
+    proc_unlock();
 }
 
 void proc_set_current(struct nm_task *task)
 {
+    proc_lock();
     current_task = task;
+    proc_unlock();
 }
 
 struct nm_task *proc_fork_current(void)
 {
+    proc_lock();
     if (current_task == 0) {
+        proc_unlock();
         return 0;
     }
 
     struct nm_task *child = alloc_task_slot();
     if (child == 0) {
+        proc_unlock();
         return 0;
     }
 
+    proc_unlock();
+
     uint8_t *kstack = alloc_task_stack();
     if (kstack == 0) {
+        return 0;
+    }
+
+    proc_lock();
+    if (current_task == 0 || child->state != NM_TASK_UNUSED) {
+        proc_unlock();
+#ifndef NEVERMIND_HOST_TEST
+        kfree(kstack);
+#endif
         return 0;
     }
 
@@ -244,13 +298,16 @@ struct nm_task *proc_fork_current(void)
     child->saved_rsp = child->kernel_stack_top;
 
     task_used++;
+    proc_unlock();
     return child;
 }
 
 int proc_exec_current(const char *name, uint64_t entry, const char *const *argv,
                       const char *const *envp)
 {
+    proc_lock();
     if (current_task == 0 || name == 0) {
+        proc_unlock();
         return -1;
     }
 
@@ -264,21 +321,27 @@ int proc_exec_current(const char *name, uint64_t entry, const char *const *argv,
     if (entry != 0) {
         current_task->regs.rip = entry;
     }
+    proc_unlock();
     return 0;
 }
 
 void proc_exit_current(int32_t code)
 {
+    proc_lock();
     if (current_task == 0) {
+        proc_unlock();
         return;
     }
     current_task->exit_code = code;
     current_task->state = NM_TASK_ZOMBIE;
+    proc_unlock();
 }
 
 int32_t proc_waitpid(int32_t pid, int32_t *status)
 {
+    proc_lock();
     if (current_task == 0) {
+        proc_unlock();
         return -1;
     }
 
@@ -299,6 +362,7 @@ int32_t proc_waitpid(int32_t pid, int32_t *status)
     }
 
     if (match == 0) {
+        proc_unlock();
         return -1;
     }
 
@@ -315,5 +379,6 @@ int32_t proc_waitpid(int32_t pid, int32_t *status)
     if (task_used > 0) {
         task_used--;
     }
+    proc_unlock();
     return found_pid;
 }

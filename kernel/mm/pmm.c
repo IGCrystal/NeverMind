@@ -34,6 +34,7 @@ static volatile uint32_t pmm_lock_word;
 struct host_alloc_entry {
     uint64_t key;
     void *ptr;
+    size_t pages;
     bool used;
 };
 
@@ -78,6 +79,7 @@ void pmm_init_from_ranges(const struct nm_mem_range *ranges, size_t count)
         host_allocs[i].used = false;
         host_allocs[i].ptr = 0;
         host_allocs[i].key = 0;
+        host_allocs[i].pages = 0;
     }
     host_alloc_key_seed = 0x1000;
 }
@@ -107,6 +109,7 @@ uint64_t pmm_alloc_pages(size_t count)
             host_allocs[i].used = true;
             host_allocs[i].ptr = ptr;
             host_allocs[i].key = host_make_key();
+            host_allocs[i].pages = count;
             mm_stats.free_frames -= count;
             mm_stats.used_frames += count;
             return host_allocs[i].key;
@@ -133,8 +136,9 @@ void pmm_free_page(uint64_t phys_addr)
             host_allocs[i].used = false;
             host_allocs[i].ptr = 0;
             host_allocs[i].key = 0;
-            mm_stats.free_frames++;
-            mm_stats.used_frames--;
+            mm_stats.free_frames += host_allocs[i].pages;
+            mm_stats.used_frames -= host_allocs[i].pages;
+            host_allocs[i].pages = 0;
             return;
         }
     }

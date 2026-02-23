@@ -35,6 +35,19 @@ struct nm_fdobj {
 
 static struct nm_pipe pipe_table[NM_PIPE_MAX];
 static struct nm_fdobj fdobj_table[NM_FDOBJ_MAX];
+static volatile uint32_t fd_lock_word;
+
+static inline void fd_lock(void)
+{
+    while (__sync_lock_test_and_set(&fd_lock_word, 1U) != 0U) {
+        __asm__ volatile("pause");
+    }
+}
+
+static inline void fd_unlock(void)
+{
+    __sync_lock_release(&fd_lock_word);
+}
 
 static int alloc_task_fd(const struct nm_task *task)
 {
@@ -313,6 +326,8 @@ static int adopt_legacy_fs_fd(struct nm_task *task, int32_t fd)
 
 void nm_fd_init(void)
 {
+    fd_lock_word = 0;
+    fd_lock();
     for (size_t i = 0; i < NM_PIPE_MAX; i++) {
         pipe_table[i].used = 0;
         pipe_table[i].read_pos = 0;
@@ -328,23 +343,29 @@ void nm_fd_init(void)
         fdobj_table[i].fs_fd = -1;
         fdobj_table[i].pipe_id = -1;
     }
+    fd_unlock();
 }
 
 int64_t nm_fd_read(struct nm_task *task, int32_t fd, void *buf, uint64_t len)
 {
+    fd_lock();
     if (task == 0 || buf == 0) {
+        fd_unlock();
         return -1;
     }
 
     int32_t obj_id = task_fdobj_id(task, fd);
     if (obj_id == -1) {
+        fd_unlock();
         return -1;
     }
 
     if (obj_id >= 0 && obj_id < NM_FDOBJ_MAX) {
         struct nm_fdobj *obj = fdobj_get(obj_id);
         if (obj != 0) {
-            return read_from_fdobj(obj, buf, len);
+            int64_t ret = read_from_fdobj(obj, buf, len);
+            fd_unlock();
+            return ret;
         }
     }
 
@@ -352,28 +373,36 @@ int64_t nm_fd_read(struct nm_task *task, int32_t fd, void *buf, uint64_t len)
     if (adopted >= 0) {
         struct nm_fdobj *obj = fdobj_get(adopted);
         if (obj != 0) {
-            return read_from_fdobj(obj, buf, len);
+            int64_t ret = read_from_fdobj(obj, buf, len);
+            fd_unlock();
+            return ret;
         }
     }
 
+    fd_unlock();
     return -1;
 }
 
 int64_t nm_fd_write(struct nm_task *task, int32_t fd, const void *buf, uint64_t len)
 {
+    fd_lock();
     if (task == 0 || buf == 0) {
+        fd_unlock();
         return -1;
     }
 
     int32_t obj_id = task_fdobj_id(task, fd);
     if (obj_id == -1) {
+        fd_unlock();
         return -1;
     }
 
     if (obj_id >= 0 && obj_id < NM_FDOBJ_MAX) {
         struct nm_fdobj *obj = fdobj_get(obj_id);
         if (obj != 0) {
-            return write_to_fdobj(obj, buf, len);
+            int64_t ret = write_to_fdobj(obj, buf, len);
+            fd_unlock();
+            return ret;
         }
     }
 
@@ -381,36 +410,47 @@ int64_t nm_fd_write(struct nm_task *task, int32_t fd, const void *buf, uint64_t 
     if (adopted >= 0) {
         struct nm_fdobj *obj = fdobj_get(adopted);
         if (obj != 0) {
-            return write_to_fdobj(obj, buf, len);
+            int64_t ret = write_to_fdobj(obj, buf, len);
+            fd_unlock();
+            return ret;
         }
     }
 
+    fd_unlock();
     return -1;
 }
 
 int nm_fd_close(struct nm_task *task, int32_t fd)
 {
+    fd_lock();
     if (task == 0 || fd < 0 || fd >= NM_MAX_FDS) {
+        fd_unlock();
         return -1;
     }
 
     int32_t obj_id = task_fdobj_id(task, fd);
     if (obj_id == -1) {
+        fd_unlock();
         return -1;
     }
 
     if (obj_id >= 0 && obj_id < NM_FDOBJ_MAX && fdobj_get(obj_id) == 0) {
         if (adopt_legacy_fs_fd(task, fd) < 0) {
+            fd_unlock();
             return -1;
         }
     }
 
-    return task_close_fd(task, fd);
+    int ret = task_close_fd(task, fd);
+    fd_unlock();
+    return ret;
 }
 
 int nm_fd_pipe(struct nm_task *task, int32_t *read_fd, int32_t *write_fd)
 {
+    fd_lock();
     if (task == 0 || read_fd == 0 || write_fd == 0) {
+        fd_unlock();
         return -1;
     }
 
@@ -422,11 +462,13 @@ int nm_fd_pipe(struct nm_task *task, int32_t *read_fd, int32_t *write_fd)
         }
     }
     if (pipe_id < 0) {
+        fd_unlock();
         return -1;
     }
 
     int rd = alloc_task_fd(task);
     if (rd < 0) {
+        fd_unlock();
         return -1;
     }
     task->fd_table[rd] = -2;
@@ -434,6 +476,7 @@ int nm_fd_pipe(struct nm_task *task, int32_t *read_fd, int32_t *write_fd)
     int wr = alloc_task_fd(task);
     if (wr < 0) {
         task->fd_table[rd] = -1;
+        fd_unlock();
         return -1;
     }
 
@@ -449,6 +492,7 @@ int nm_fd_pipe(struct nm_task *task, int32_t *read_fd, int32_t *write_fd)
         pipe_table[pipe_id].used = 0;
         pipe_table[pipe_id].readers = 0;
         pipe_table[pipe_id].writers = 0;
+        fd_unlock();
         return -1;
     }
 
@@ -459,6 +503,7 @@ int nm_fd_pipe(struct nm_task *task, int32_t *read_fd, int32_t *write_fd)
         pipe_table[pipe_id].used = 0;
         pipe_table[pipe_id].readers = 0;
         pipe_table[pipe_id].writers = 0;
+        fd_unlock();
         return -1;
     }
 
@@ -467,41 +512,51 @@ int nm_fd_pipe(struct nm_task *task, int32_t *read_fd, int32_t *write_fd)
 
     *read_fd = rd;
     *write_fd = wr;
+    fd_unlock();
     return 0;
 }
 
 int64_t nm_fd_dup2(struct nm_task *task, int32_t oldfd, int32_t newfd)
 {
+    fd_lock();
     if (task == 0 || oldfd < 0 || newfd < 0 || oldfd >= NM_MAX_FDS || newfd >= NM_MAX_FDS) {
+        fd_unlock();
         return -1;
     }
 
     int32_t old_obj = task_fdobj_id(task, oldfd);
     if (old_obj == -1) {
+        fd_unlock();
         return -1;
     }
 
     if (oldfd == newfd) {
+        fd_unlock();
         return newfd;
     }
 
     int32_t new_obj = task_fdobj_id(task, newfd);
     if (new_obj != -1 && task_close_fd(task, newfd) != 0) {
+        fd_unlock();
         return -1;
     }
 
     if (fdobj_retain(old_obj) != 0) {
+        fd_unlock();
         return -1;
     }
 
     (void)task_install_fdobj(task, newfd, old_obj);
     task->fd_cloexec_mask &= ~(1U << (uint32_t)newfd);
+    fd_unlock();
     return newfd;
 }
 
 int nm_fd_on_fork_child(struct nm_task *child)
 {
+    fd_lock();
     if (child == 0) {
+        fd_unlock();
         return -1;
     }
 
@@ -511,12 +566,15 @@ int nm_fd_on_fork_child(struct nm_task *child)
             child->fd_table[i] = -1;
         }
     }
+    fd_unlock();
     return 0;
 }
 
 int nm_fd_set_cloexec(struct nm_task *task, int32_t fd, int enabled)
 {
+    fd_lock();
     if (task == 0 || fd < 0 || fd >= NM_MAX_FDS || task->fd_table[fd] == -1) {
+        fd_unlock();
         return -1;
     }
 
@@ -526,17 +584,22 @@ int nm_fd_set_cloexec(struct nm_task *task, int32_t fd, int enabled)
     } else {
         task->fd_cloexec_mask &= ~bit;
     }
+    fd_unlock();
     return 0;
 }
 
 int nm_fd_get_cloexec(const struct nm_task *task, int32_t fd)
 {
+    fd_lock();
     if (task == 0 || fd < 0 || fd >= NM_MAX_FDS || task->fd_table[fd] == -1) {
+        fd_unlock();
         return -1;
     }
 
     uint32_t bit = 1U << (uint32_t)fd;
-    return (task->fd_cloexec_mask & bit) ? 1 : 0;
+    int ret = (task->fd_cloexec_mask & bit) ? 1 : 0;
+    fd_unlock();
+    return ret;
 }
 
 void nm_fd_close_on_exec(struct nm_task *task)
@@ -545,11 +608,26 @@ void nm_fd_close_on_exec(struct nm_task *task)
         return;
     }
 
+    fd_lock();
     for (int fd = 0; fd < NM_MAX_FDS; fd++) {
         uint32_t bit = 1U << (uint32_t)fd;
         if ((task->fd_cloexec_mask & bit) == 0) {
             continue;
         }
-        (void)nm_fd_close(task, fd);
+
+        int32_t obj_id = task_fdobj_id(task, fd);
+        if (obj_id == -1) {
+            task->fd_cloexec_mask &= ~bit;
+            continue;
+        }
+
+        if (obj_id >= 0 && obj_id < NM_FDOBJ_MAX && fdobj_get(obj_id) == 0) {
+            if (adopt_legacy_fs_fd(task, fd) < 0) {
+                continue;
+            }
+        }
+
+        (void)task_close_fd(task, fd);
     }
+    fd_unlock();
 }
