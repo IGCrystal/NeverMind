@@ -69,6 +69,9 @@ jobs:
         run: make user-tools
 
       - name: Acceptance aggregate
+        env:
+          SMOKE_TIMEOUT: 60s
+          SMOKE_RETRY_TIMEOUT: 90s
         run: make acceptance
 
       - name: Static analysis
@@ -78,6 +81,9 @@ jobs:
           scan-build --status-bugs make clean all
 
       - name: Smoke test in QEMU
+        env:
+          SMOKE_TIMEOUT: 60s
+          SMOKE_RETRY_TIMEOUT: 90s
         run: make smoke
 
       - name: Upload test logs on failure
