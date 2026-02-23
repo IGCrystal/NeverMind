@@ -8,6 +8,7 @@
 static struct nm_device pci_devices[NM_PCI_MAX_DEVICES];
 static size_t pci_count;
 
+#ifndef NEVERMIND_HOST_TEST
 static uint32_t pci_cfg_addr(uint8_t bus, uint8_t slot, uint8_t func, uint8_t off)
 {
     return (1U << 31) | ((uint32_t)bus << 16) | ((uint32_t)slot << 11) | ((uint32_t)func << 8) |
@@ -16,13 +17,6 @@ static uint32_t pci_cfg_addr(uint8_t bus, uint8_t slot, uint8_t func, uint8_t of
 
 static uint32_t pci_cfg_read32(uint8_t bus, uint8_t slot, uint8_t func, uint8_t off)
 {
-#ifdef NEVERMIND_HOST_TEST
-    (void)bus;
-    (void)slot;
-    (void)func;
-    (void)off;
-    return 0xFFFFFFFFU;
-#else
     outb(0xCF8, (uint8_t)(pci_cfg_addr(bus, slot, func, off) & 0xFF));
     outb(0xCF8 + 1, (uint8_t)((pci_cfg_addr(bus, slot, func, off) >> 8) & 0xFF));
     outb(0xCF8 + 2, (uint8_t)((pci_cfg_addr(bus, slot, func, off) >> 16) & 0xFF));
@@ -34,8 +28,8 @@ static uint32_t pci_cfg_read32(uint8_t bus, uint8_t slot, uint8_t func, uint8_t 
     value |= (uint32_t)inb(0xCFC + 2) << 16;
     value |= (uint32_t)inb(0xCFC + 3) << 24;
     return value;
-#endif
 }
+#endif
 
 void pci_init(void)
 {

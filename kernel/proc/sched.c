@@ -51,12 +51,13 @@ static struct nm_task *pick_rr(void)
 static struct nm_task *pick_cfs(void)
 {
     struct nm_task *best = 0;
+
     for (size_t idx = 0; idx < 128; idx++) {
         struct nm_task *task = task_by_index(idx);
         if (task == 0) {
             continue;
         }
-        if (task->state != NM_TASK_RUNNABLE && task->state != NM_TASK_RUNNING) {
+        if (task->state != NM_TASK_RUNNABLE) {
             continue;
         }
 
@@ -64,6 +65,25 @@ static struct nm_task *pick_cfs(void)
             best = task;
         }
     }
+
+    if (best != 0) {
+        return best;
+    }
+
+    for (size_t idx = 0; idx < 128; idx++) {
+        struct nm_task *task = task_by_index(idx);
+        if (task == 0) {
+            continue;
+        }
+        if (task->state != NM_TASK_RUNNING) {
+            continue;
+        }
+
+        if (best == 0 || task->sched.vruntime < best->sched.vruntime) {
+            best = task;
+        }
+    }
+
     if (best == 0) {
         best = task_current();
     }

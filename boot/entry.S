@@ -1,4 +1,4 @@
-.set KERNEL_VIRT_BASE, 0xFFFF800000000000
+.set KERNEL_VIRT_BASE, 0xFFFFFFFF80000000
 .set MB2_MAGIC, 0xE85250D6
 .set MB2_ARCH_I386, 0
 
@@ -68,7 +68,7 @@ _start:
 
     call setup_page_tables
 
-    mov $(boot_pml4 - KERNEL_VIRT_BASE), %eax
+    mov $boot_pml4, %eax
     mov %eax, %cr3
 
     mov %cr4, %eax
@@ -92,23 +92,24 @@ _start:
     jmp .hang
 
 setup_page_tables:
-    mov $(boot_pml4 - KERNEL_VIRT_BASE), %edi
+    mov $boot_pml4, %edi
     mov $0, %eax
     mov $3072, %ecx
     rep stosl
 
-    mov $(boot_pdpt - KERNEL_VIRT_BASE), %eax
+    mov $boot_pdpt, %eax
     or $(PTE_P | PTE_RW), %eax
-    mov $(boot_pml4 - KERNEL_VIRT_BASE), %edi
+    mov $boot_pml4, %edi
     mov %eax, (%edi)
-    mov %eax, 256*8(%edi)
+    mov %eax, 511*8(%edi)
 
-    mov $(boot_pd - KERNEL_VIRT_BASE), %eax
+    mov $boot_pd, %eax
     or $(PTE_P | PTE_RW), %eax
-    mov $(boot_pdpt - KERNEL_VIRT_BASE), %edi
+    mov $boot_pdpt, %edi
     mov %eax, (%edi)
+    mov %eax, 510*8(%edi)
 
-    mov $(boot_pd - KERNEL_VIRT_BASE), %edi
+    mov $boot_pd, %edi
     xor %ebx, %ebx
     mov $512, %ecx
 

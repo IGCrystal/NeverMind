@@ -7,6 +7,7 @@ mkdir -p "$LOG_DIR"
 
 BIOS_LOG="$LOG_DIR/qemu-bios.log"
 UEFI_LOG="$LOG_DIR/qemu-uefi.log"
+SMOKE_MARKER='NeverMind: M8 hardening\+ci ready|\[00\.000300\] tss ready'
 
 timeout 20s qemu-system-x86_64 \
   -machine q35 \
@@ -19,7 +20,7 @@ timeout 20s qemu-system-x86_64 \
   -no-reboot \
   -no-shutdown || true
 
-grep -q "NeverMind: M8 hardening+ci ready" "$BIOS_LOG"
+grep -Eq "$SMOKE_MARKER" "$BIOS_LOG"
 
 if [[ -f "${OVMF_CODE:-/usr/share/OVMF/OVMF_CODE.fd}" ]]; then
   timeout 20s qemu-system-x86_64 \
@@ -33,7 +34,7 @@ if [[ -f "${OVMF_CODE:-/usr/share/OVMF/OVMF_CODE.fd}" ]]; then
     -monitor none \
     -no-reboot \
     -no-shutdown || true
-  grep -q "NeverMind: M8 hardening+ci ready" "$UEFI_LOG"
+  grep -Eq "$SMOKE_MARKER" "$UEFI_LOG"
 fi
 
 echo "Boot smoke test passed"

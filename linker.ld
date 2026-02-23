@@ -2,7 +2,7 @@ OUTPUT_FORMAT(elf64-x86-64)
 ENTRY(_start)
 
 KERNEL_PHYS_BASE = 0x00100000;
-KERNEL_VIRT_BASE = 0xFFFF800000000000;
+KERNEL_VIRT_BASE = 0xFFFFFFFF80000000;
 
 SECTIONS
 {
@@ -19,22 +19,22 @@ SECTIONS
 
     . += KERNEL_VIRT_BASE;
 
-    .text : ALIGN(4K) AT(ADDR(.text) - KERNEL_VIRT_BASE)
+    .text ALIGN(4K) : AT(ADDR(.text) - KERNEL_VIRT_BASE)
     {
         *(.text*)
     }
 
-    .rodata : ALIGN(4K) AT(ADDR(.rodata) - KERNEL_VIRT_BASE)
+    .rodata ALIGN(4K) : AT(ADDR(.rodata) - KERNEL_VIRT_BASE)
     {
         *(.rodata*)
     }
 
-    .data : ALIGN(4K) AT(ADDR(.data) - KERNEL_VIRT_BASE)
+    .data ALIGN(4K) : AT(ADDR(.data) - KERNEL_VIRT_BASE)
     {
         *(.data*)
     }
 
-    .bss : ALIGN(4K) AT(ADDR(.bss) - KERNEL_VIRT_BASE)
+    .bss ALIGN(4K) : AT(ADDR(.bss) - KERNEL_VIRT_BASE)
     {
         *(COMMON)
         *(.bss*)

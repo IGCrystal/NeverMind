@@ -120,13 +120,18 @@ acceptance:
 	./tests/run_full_acceptance.sh
 
 user-tools:
-	$(CC) -std=c11 -Wall -Wextra -Werror -O2 userspace/ping.c kernel/net/icmp.c kernel/net/net.c \
+	$(CC) -std=c11 -Wall -Wextra -Werror -O2 userspace/ping.c \
+	  kernel/net/net.c kernel/net/arp.c kernel/net/ipv4.c kernel/net/icmp.c \
+	  kernel/net/udp.c kernel/net/tcp.c \
+	  kernel/string.c \
 	  -Iinclude -DNEVERMIND_HOST_TEST -o $(BUILD_DIR)/ping
 	$(CC) -std=c11 -Wall -Wextra -Werror -O2 userspace/http_server.c kernel/net/socket.c \
-	  kernel/net/tcp.c kernel/net/udp.c kernel/net/net.c kernel/string.c \
+	  kernel/net/tcp.c kernel/net/udp.c kernel/net/net.c kernel/net/arp.c kernel/net/ipv4.c \
+	  kernel/net/icmp.c kernel/string.c \
 	  -Iinclude -DNEVERMIND_HOST_TEST -o $(BUILD_DIR)/http_server
 	$(CC) -std=c11 -Wall -Wextra -Werror -O2 userspace/http_client.c kernel/net/socket.c \
-	  kernel/net/tcp.c kernel/net/udp.c kernel/net/net.c kernel/string.c \
+	  kernel/net/tcp.c kernel/net/udp.c kernel/net/net.c kernel/net/arp.c kernel/net/ipv4.c \
+	  kernel/net/icmp.c kernel/string.c \
 	  -Iinclude -DNEVERMIND_HOST_TEST -o $(BUILD_DIR)/http_client
 	$(CC) -std=c11 -Wall -Wextra -Werror -O2 userspace/dmesg.c kernel/klog.c \
 	  -Iinclude -DNEVERMIND_HOST_TEST -o $(BUILD_DIR)/dmesg
