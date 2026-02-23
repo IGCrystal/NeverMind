@@ -53,7 +53,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            gcc binutils make grub-pc-bin grub-common xorriso \
+            gcc binutils make grub-pc-bin grub-common xorriso mtools \
             qemu-system-x86 ovmf cppcheck clang-tools
 
       - name: Build kernel image
