@@ -83,7 +83,7 @@ run-uefi: all
 	./scripts/run_qemu_uefi.sh $(ISO_IMAGE)
 
 smoke: all
-	./tests/smoke_m1.sh $(ISO_IMAGE)
+	bash ./tests/smoke_m1.sh $(ISO_IMAGE)
 
 test:
 	$(CC) -std=c11 -Wall -Wextra -Werror -O2 \
