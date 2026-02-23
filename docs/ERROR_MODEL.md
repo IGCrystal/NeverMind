@@ -18,6 +18,8 @@
 - 阶段 2（进行中）：`kernel/net/net.c` 与 `kernel/fs/{tmpfs,ext2}.c` 的错误返回已迁移到 `NM_ERR(...)` 常量写法。
 - 阶段 2（进行中）：`kernel/drivers/irq.c` 的错误返回已迁移到 `NM_ERR(...)` 常量写法。
 - 审计记录：`kernel/net/{arp,ipv4}.c` 当前不存在裸 `return -1` 路径，本轮无需改动。
+- 阶段 2（进行中）：`kernel/drivers/rtl8139.c` 的错误返回已迁移到 `NM_ERR(...)` 常量写法。
+- 审计记录：截至当前批次，`kernel/**/*.c` 中裸 `return -1` 路径已清零。
 
 ## 3. 子系统约束
 
