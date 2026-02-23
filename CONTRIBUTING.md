@@ -33,3 +33,9 @@
 
 - 使用 semver tag：`vMAJOR.MINOR.PATCH`
 - 发布前更新：`CHANGELOG.md`、`FINAL_DECLARATION.md`
+- 详细发布步骤见 `RELEASE.md`
+
+## CI 规范守卫
+
+- PR/Push 会执行 Conventional Commits 校验（`commitlint.config.cjs`）
+- 未通过校验的提交将阻止后续构建与合并

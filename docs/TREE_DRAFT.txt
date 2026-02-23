@@ -1,5 +1,9 @@
 .
 ├── .clang-format
+├── .vscode
+│   ├── c_cpp_properties.json
+│   ├── settings.json
+│   └── tasks.json
 ├── .github
 │   ├── pull_request_template.md
 │   └── workflows
@@ -8,6 +12,7 @@
 ├── .gitignore
 ├── ARCHITECTURE.md
 ├── CHANGELOG.md
+├── commitlint.config.cjs
 ├── CONTRIBUTING.md
 ├── Dockerfile
 ├── FINAL_DECLARATION.md
@@ -15,6 +20,7 @@
 ├── Makefile
 ├── PERF_BASELINE.md
 ├── README.md
+├── RELEASE.md
 ├── SECURITY_AUDIT.md
 ├── boot
 │   └── entry.S
@@ -98,6 +104,7 @@
 ├── scripts
 │   ├── run_qemu_bios.sh
 │   ├── run_qemu_uefi.sh
+│   ├── run_acceptance_wsl.ps1
 │   ├── setup_ubuntu.sh
 │   └── setup_wsl.ps1
 ├── tests
@@ -105,6 +112,8 @@
 │   │   └── test_boot_shell.c
 │   ├── results-20260223
 │   │   └── build.log
+│   ├── run_full_acceptance.ps1
+│   ├── run_full_acceptance.sh
 │   ├── smoke_m1.sh
 │   └── unit
 │       ├── test_irq_pci.c

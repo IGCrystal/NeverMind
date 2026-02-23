@@ -50,7 +50,7 @@ KERNEL_SRCS := \
 
 OBJS := $(BOOT_SRCS:%.S=$(BUILD_DIR)/%.o) $(PROC_ASM_SRCS:%.S=$(BUILD_DIR)/%.o) $(KERNEL_SRCS:%.c=$(BUILD_DIR)/%.o)
 
-.PHONY: all clean iso run-bios run-uefi smoke test integration user-tools
+.PHONY: all clean iso run-bios run-uefi smoke test integration user-tools acceptance
 
 all: $(KERNEL_ELF) iso
 
@@ -115,6 +115,9 @@ integration: test
 	  tests/integration/test_boot_shell.c userspace/shell.c kernel/fs/vfs.c kernel/fs/tmpfs.c \
 	  kernel/string.c -Iinclude -DNEVERMIND_HOST_TEST -o $(BUILD_DIR)/test_boot_shell
 	$(BUILD_DIR)/test_boot_shell
+
+acceptance:
+	./tests/run_full_acceptance.sh
 
 user-tools:
 	$(CC) -std=c11 -Wall -Wextra -Werror -O2 userspace/ping.c kernel/net/icmp.c kernel/net/net.c \

@@ -24,6 +24,12 @@ GPLv2-compatible，见 `LICENSE`。
 - Ubuntu: `./scripts/setup_ubuntu.sh`
 - Windows + WSL: `powershell -ExecutionPolicy Bypass -File .\scripts\setup_wsl.ps1`
 
+WSL 脚本会自动选择已安装发行版（如 `Ubuntu-18.04`），也可手动传参：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\run_acceptance_wsl.ps1 -Distro Ubuntu-18.04
+```
+
 也可使用容器复现：
 
 ```bash
@@ -31,7 +37,7 @@ docker build -t nevermind-dev .
 docker run --rm -it -v "$PWD":/workspace nevermind-dev
 ```
 
-若在 Windows 主机看到 `stddef.h/stdint.h` 缺失红线，请在 VS Code 选择 C/C++ 配置为 `NeverMind-WSL`，并在 WSL 内执行构建。
+若在 Windows 主机看到 `stddef.h/stdint.h` 缺失红线，请先执行 `scripts/setup_wsl.ps1` 安装 WSL 工具链，再在 VS Code 选择 C/C++ 配置为 `NeverMind-WSL`。
 
 产物：
 
@@ -49,6 +55,26 @@ make test
 ```bash
 make integration
 ```
+
+## 全量验收（M8）
+
+```bash
+make acceptance
+```
+
+Windows PowerShell：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tests\run_full_acceptance.ps1
+```
+
+推荐（自动在 WSL 中执行）：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\run_acceptance_wsl.ps1
+```
+
+输出目录：`tests/results-YYYYMMDD/`（包含 `summary.txt` 与 `build.log`）。
 
 ## 用户态工具构建（M7）
 
@@ -128,3 +154,22 @@ boot: BIOS+UEFI via GRUB multiboot2
 ## 贡献规范
 
 详见 `CONTRIBUTING.md`（Conventional Commits、PR 流程、发布规范）。
+
+提交规范在 CI 中强制校验（`commitlint.config.cjs` + `ci.yml`）。
+
+## 发布流程
+
+详见 `RELEASE.md`（SemVer tag、发布检查、产物清单）。
+
+## VS Code Tasks
+
+可直接运行以下任务：
+
+- `NeverMind: Setup WSL Toolchain`
+- `NeverMind: Build`
+- `NeverMind: Unit Tests`
+- `NeverMind: Integration Tests`
+- `NeverMind: Smoke`
+- `NeverMind: Acceptance`
+- `NeverMind: Acceptance (WSL)`（默认 Build 任务）
+- `NeverMind: Setup+Acceptance (WSL)`

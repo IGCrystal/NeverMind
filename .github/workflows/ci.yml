@@ -7,8 +7,41 @@ on:
     branches: ["main"]
 
 jobs:
+  conventional-commits:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node for commitlint
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install commitlint
+        run: |
+          npm install --no-save @commitlint/cli @commitlint/config-conventional
+
+      - name: Validate commits (push)
+        if: github.event_name == 'push'
+        run: |
+          if [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
+            RANGE="HEAD~20..HEAD"
+          else
+            RANGE="${{ github.event.before }}..${{ github.sha }}"
+          fi
+          npx commitlint --from "${RANGE%%..*}" --to "${RANGE##*..}"
+
+      - name: Validate commits (pull_request)
+        if: github.event_name == 'pull_request'
+        run: |
+          npx commitlint --from "${{ github.event.pull_request.base.sha }}" --to "${{ github.event.pull_request.head.sha }}"
+
   build-and-smoke:
     runs-on: ubuntu-24.04
+    needs: conventional-commits
     timeout-minutes: 20
     strategy:
       fail-fast: true
@@ -34,6 +67,9 @@ jobs:
 
       - name: Build userspace tools
         run: make user-tools
+
+      - name: Acceptance aggregate
+        run: make acceptance
 
       - name: Static analysis
         run: |

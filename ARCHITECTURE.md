@@ -222,6 +222,7 @@ M1 尚未启用中断与多核并发路径，锁策略在 M3/M5 引入。当前�
 - 构建验证：`make all`
 - 单元测试：`make test`（`pmm`/`kmalloc` + `scheduler` + `vfs` + `irq/pci` + `net/socket` + `shell`）
 - 集成测试：`make integration`（boot shell 脚本回归）
+- 全量验收：`make acceptance`（生成 `tests/results-YYYYMMDD/summary.txt`）
 - 启动验证：`tests/smoke_m1.sh`
 - 验证条件：QEMU 串口日志包含 `NeverMind: M8 hardening+ci ready`
 - CI 失败策略：任一步骤失败即失败；失败时上传 QEMU 日志作为排障依据。

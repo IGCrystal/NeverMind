@@ -1,0 +1,60 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "NeverMind: Setup WSL Toolchain",
+      "type": "shell",
+      "command": "powershell -ExecutionPolicy Bypass -File .\\scripts\\setup_wsl.ps1",
+      "problemMatcher": []
+    },
+    {
+      "label": "NeverMind: Build",
+      "type": "shell",
+      "command": "make clean all",
+      "problemMatcher": []
+    },
+    {
+      "label": "NeverMind: Unit Tests",
+      "type": "shell",
+      "command": "make test",
+      "problemMatcher": []
+    },
+    {
+      "label": "NeverMind: Integration Tests",
+      "type": "shell",
+      "command": "make integration",
+      "problemMatcher": []
+    },
+    {
+      "label": "NeverMind: Smoke",
+      "type": "shell",
+      "command": "make smoke",
+      "problemMatcher": []
+    },
+    {
+      "label": "NeverMind: Acceptance",
+      "type": "shell",
+      "command": "make acceptance",
+      "problemMatcher": []
+    },
+    {
+      "label": "NeverMind: Acceptance (WSL)",
+      "type": "shell",
+      "command": "powershell -ExecutionPolicy Bypass -File .\\scripts\\run_acceptance_wsl.ps1",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "NeverMind: Setup+Acceptance (WSL)",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "NeverMind: Setup WSL Toolchain",
+        "NeverMind: Acceptance (WSL)"
+      ],
+      "problemMatcher": []
+    }
+  ]
+}
