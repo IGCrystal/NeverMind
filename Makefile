@@ -24,13 +24,15 @@ KERNEL_MAP := $(BUILD_DIR)/kernel.map
 ISO_IMAGE := $(BUILD_DIR)/nevermind-m1.iso
 
 BOOT_SRCS := boot/entry.S
-PROC_ASM_SRCS := kernel/proc/switch.S
+PROC_ASM_SRCS := kernel/proc/switch.S \
+	kernel/idt_exceptions.S
 KERNEL_SRCS := \
 	kernel/kmain.c \
 	kernel/klog.c \
 	kernel/console.c \
 	kernel/gdt.c \
 	kernel/idt.c \
+	kernel/exceptions.c \
 	kernel/tss.c \
 	kernel/string.c \
 	kernel/mm/pmm.c \

@@ -43,6 +43,8 @@ jobs:
     runs-on: ubuntu-24.04
     needs: conventional-commits
     timeout-minutes: 20
+    env:
+      DEBUG: ${{ matrix.build == 'debug' && '1' || '0' }}
     strategy:
       fail-fast: true
       matrix:
@@ -61,8 +63,6 @@ jobs:
             qemu-system-x86 ovmf cppcheck clang-tools
 
       - name: Build kernel image
-        env:
-          DEBUG: ${{ matrix.build == 'debug' && '1' || '0' }}
         run: make all DEBUG=$DEBUG
 
       - name: Run unit tests

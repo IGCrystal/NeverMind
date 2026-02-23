@@ -2,6 +2,11 @@
 
 #include "nm/idt.h"
 
+extern void nm_isr_ud(void);
+extern void nm_isr_df(void);
+extern void nm_isr_gp(void);
+extern void nm_isr_pf(void);
+
 struct __attribute__((packed)) idt_gate {
     uint16_t offset_low;
     uint16_t selector;
@@ -39,6 +44,11 @@ void idt_init(void)
     for (int i = 0; i < 256; i++) {
         idt_set_gate(i, 0, 0, 0);
     }
+
+    idt_set_gate(6, (uint64_t)nm_isr_ud, 0x8E, 0);
+    idt_set_gate(8, (uint64_t)nm_isr_df, 0x8E, 0);
+    idt_set_gate(13, (uint64_t)nm_isr_gp, 0x8E, 0);
+    idt_set_gate(14, (uint64_t)nm_isr_pf, 0x8E, 0);
 
     struct idt_ptr idtp = {
         .limit = (uint16_t)(sizeof(idt) - 1),

@@ -75,33 +75,33 @@ if ! has_smoke_marker "$BIOS_LOG"; then
       if [[ -n "$fault_rip" ]]; then
         echo "---- RIP SYMBOL (best-effort) ----"
         FAULT_RIP_HEX="$fault_rip" python3 - <<'PY' || true
+import os
 import subprocess
-      import os
 
-      rip_hex = os.environ.get("FAULT_RIP_HEX", "")
+rip_hex = os.environ.get("FAULT_RIP_HEX", "")
 try:
-    rip = int(rip_hex, 16)
+  rip = int(rip_hex, 16)
 except ValueError:
-    raise SystemExit(0)
+  raise SystemExit(0)
 
 nm_out = subprocess.check_output(["nm", "-n", "build/kernel.elf"], text=True, errors="replace")
 best = None
 for line in nm_out.splitlines():
-    parts = line.strip().split()
-    if len(parts) < 3:
-        continue
-    addr_hex, sym_type, name = parts[0], parts[1], parts[2]
-    try:
-        addr = int(addr_hex, 16)
-    except ValueError:
-        continue
-    if addr <= rip:
-        best = line
-    else:
-        break
+  parts = line.strip().split()
+  if len(parts) < 3:
+    continue
+  addr_hex = parts[0]
+  try:
+    addr = int(addr_hex, 16)
+  except ValueError:
+    continue
+  if addr <= rip:
+    best = line
+  else:
+    break
 
 if best:
-    print(best)
+  print(best)
 PY
         echo "---------------------------------"
       fi
