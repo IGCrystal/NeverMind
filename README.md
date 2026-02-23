@@ -54,6 +54,14 @@ OVMF_CODE=/usr/share/OVMF/OVMF_CODE.fd make run-uefi
 make smoke
 ```
 
+## M6 网络工具源码
+
+- `userspace/ping.c`
+- `userspace/http_server.c`
+- `userspace/http_client.c`
+
+当前仓库提供源码与 socket API 对接示例；独立用户态链接和镜像打包在 M7 完成。
+
 ## 预期串口输出（片段）
 
 ```text
@@ -66,10 +74,11 @@ make smoke
 [00.000600] syscall ready
 [00.000700] fs ready: root=tmpfs
 [00.000800] drivers ready: pit/kbd/pci/rtl8139
-NeverMind kernel (M5)
+[00.000900] net ready: arp/ipv4/icmp/udp/tcp/socket
+NeverMind kernel (M6)
 arch: x86_64
 boot: BIOS+UEFI via GRUB multiboot2
-[00.001000] NeverMind: M5 drivers boot ok
+[00.001000] NeverMind: M6 net boot ok
 ```
 
 ## 里程碑
@@ -79,7 +88,7 @@ boot: BIOS+UEFI via GRUB multiboot2
 - M3 (proc): task_struct + kernel thread + RR/CFS(近似) + syscall 分发 + 调度单测
 - M4 (fs): VFS + tmpfs + ext2 最小实现 + VFS 单测
 - M5 (drivers): IRQ 框架 + PIT + keyboard + PCI 枚举 + RTL8139 骨架 + 单测
-- M6 (network): Ethernet/IPv4/UDP/TCP 最小栈
+- M6 (network): ARP + IPv4 + ICMP + UDP + TCP + socket API + ping/http 工具源码
 - M7 (userspace): shell 与工具集 + 集成测试
 - M8 (hardening+CI): 安全加固、发布与基线报告
 

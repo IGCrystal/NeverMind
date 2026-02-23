@@ -39,6 +39,18 @@ M5 引入设备驱动框架与中断驱动模型：
 4. PCI 枚举与设备发现
 5. RTL8139 网卡最小驱动骨架
 
+## M6 范围
+
+M6 引入最小网络栈与 socket API：
+
+1. Ethernet 输入分发
+2. ARP cache
+3. IPv4 协议分发
+4. ICMP echo 处理
+5. UDP 收发与端口队列
+6. TCP 简化连接（三次握手近似）
+7. socket API（bind/listen/accept/connect/sendto/recvfrom）
+
 ## 启动链路
 
 1. BIOS 或 UEFI 固件进入 GRUB。
@@ -139,10 +151,32 @@ M1 尚未启用中断与多核并发路径，锁策略在 M3/M5 引入。当前�
 - PCI：扫描 bus/slot，提取 vendor/device/class 与 BAR0
 - RTL8139：通过 PCI ID `10EC:8139` 探测，提供发送/接收接口骨架
 
-## 测试策略（M1-M5）
+## 网络栈（M6）
+
+### 分层
+
+- L2：Ethernet + ARP
+- L3：IPv4 + ICMP
+- L4：UDP + TCP（简化状态机）
+- API：socket 抽象层
+
+### TCP 设计（简化）
+
+- 监听端：`tcp_listen(port)`
+- 连接端：`tcp_connect(dst, dport, sport)`
+- 服务端接入：`tcp_accept(listen_port)`
+- 数据路径：连接对之间内存缓冲转发（用于功能验证）
+
+### Socket API
+
+- `nm_socket/nm_bind/nm_listen/nm_accept/nm_connect`
+- `nm_sendto/nm_recvfrom/nm_close_socket`
+- UDP 与 TCP 均走统一 API 入口
+
+## 测试策略（M1-M6）
 
 - 构建验证：`make all`
-- 单元测试：`make test`（`pmm`/`kmalloc` + `scheduler` + `vfs` + `irq/pci` 用户态模拟）
+- 单元测试：`make test`（`pmm`/`kmalloc` + `scheduler` + `vfs` + `irq/pci` + `net/socket` 用户态模拟）
 - 启动验证：`tests/smoke_m1.sh`
-- 验证条件：QEMU 串口日志包含 `NeverMind: M5 drivers boot ok`
+- 验证条件：QEMU 串口日志包含 `NeverMind: M6 net boot ok`
 - CI 失败策略：任一步骤失败即失败；失败时上传 QEMU 日志作为排障依据。

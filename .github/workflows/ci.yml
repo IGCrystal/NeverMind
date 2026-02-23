@@ -32,7 +32,7 @@ jobs:
       - name: Static analysis
         run: |
           cppcheck --enable=warning,style,performance --error-exitcode=1 \
-            --inline-suppr --suppress=missingIncludeSystem kernel include
+            --inline-suppr --suppress=missingIncludeSystem kernel include userspace
           scan-build --status-bugs make clean all
 
       - name: Smoke test in QEMU

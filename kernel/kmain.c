@@ -7,6 +7,7 @@
 #include "nm/irq.h"
 #include "nm/keyboard.h"
 #include "nm/mm.h"
+#include "nm/net.h"
 #include "nm/pci.h"
 #include "nm/proc.h"
 #include "nm/rtl8139.h"
@@ -52,7 +53,7 @@ static void console_write_u64(uint64_t value)
 
 static void kernel_banner(void)
 {
-    console_write("NeverMind kernel (M5)\n");
+    console_write("NeverMind kernel (M6)\n");
     console_write("arch: x86_64\n");
     console_write("boot: BIOS+UEFI via GRUB multiboot2\n");
 }
@@ -105,8 +106,11 @@ void kmain(uint64_t mb2_info)
         console_write("[00.000800] drivers ready: pit/kbd/pci (rtl8139 missing)\n");
     }
 
+    net_init();
+    console_write("[00.000900] net ready: arp/ipv4/icmp/udp/tcp/socket\n");
+
     kernel_banner();
-    console_write("[00.001000] NeverMind: M5 drivers boot ok\n");
+    console_write("[00.001000] NeverMind: M6 net boot ok\n");
 
     for (;;) {
         __asm__ volatile("hlt");

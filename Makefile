@@ -36,7 +36,14 @@ KERNEL_SRCS := \
 	kernel/drivers/pit.c \
 	kernel/drivers/keyboard.c \
 	kernel/drivers/pci.c \
-	kernel/drivers/rtl8139.c
+	kernel/drivers/rtl8139.c \
+	kernel/net/net.c \
+	kernel/net/arp.c \
+	kernel/net/ipv4.c \
+	kernel/net/icmp.c \
+	kernel/net/udp.c \
+	kernel/net/tcp.c \
+	kernel/net/socket.c
 
 OBJS := $(BOOT_SRCS:%.S=$(BUILD_DIR)/%.o) $(PROC_ASM_SRCS:%.S=$(BUILD_DIR)/%.o) $(KERNEL_SRCS:%.c=$(BUILD_DIR)/%.o)
 
@@ -90,6 +97,11 @@ test:
 	  tests/unit/test_irq_pci.c kernel/drivers/irq.c kernel/drivers/pci.c kernel/string.c \
 	  -Iinclude -DNEVERMIND_HOST_TEST -o $(BUILD_DIR)/test_irq_pci
 	$(BUILD_DIR)/test_irq_pci
+	$(CC) -std=c11 -Wall -Wextra -Werror -O2 \
+	  tests/unit/test_net.c kernel/net/net.c kernel/net/arp.c kernel/net/ipv4.c kernel/net/icmp.c \
+	  kernel/net/udp.c kernel/net/tcp.c kernel/net/socket.c kernel/string.c \
+	  -Iinclude -DNEVERMIND_HOST_TEST -o $(BUILD_DIR)/test_net
+	$(BUILD_DIR)/test_net
 
 
 
