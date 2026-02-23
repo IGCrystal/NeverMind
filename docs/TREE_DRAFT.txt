@@ -3,12 +3,17 @@
 ├── .github
 │   ├── pull_request_template.md
 │   └── workflows
-│       └── ci.yml
+│       ├── ci.yml
+│       └── release.yml
 ├── .gitignore
 ├── ARCHITECTURE.md
+├── CHANGELOG.md
+├── FINAL_DECLARATION.md
 ├── LICENSE
 ├── Makefile
+├── PERF_BASELINE.md
 ├── README.md
+├── SECURITY_AUDIT.md
 ├── boot
 │   └── entry.S
 ├── build.sh
@@ -20,7 +25,9 @@
 │       ├── M3.md
 │       ├── M4.md
 │       ├── M5.md
-│       └── M6.md
+│       ├── M6.md
+│       ├── M7.md
+│       └── M8.md
 ├── grub
 │   └── grub.cfg
 ├── include
@@ -33,6 +40,7 @@
 │       ├── io.h
 │       ├── irq.h
 │       ├── keyboard.h
+│       ├── klog.h
 │       ├── mm.h
 │       ├── multiboot2.h
 │       ├── net.h
@@ -40,10 +48,12 @@
 │       ├── proc.h
 │       ├── rtl8139.h
 │       ├── socket.h
+│       ├── shell.h
 │       ├── string.h
 │       ├── syscall.h
 │       ├── timer.h
-│       └── tss.h
+│       ├── tss.h
+│       └── userspace.h
 ├── kernel
 │   ├── console.c
 │   ├── drivers
@@ -55,6 +65,7 @@
 │   ├── gdt.c
 │   ├── idt.c
 │   ├── kmain.c
+│   ├── klog.c
 │   ├── fs
 │   │   ├── ext2.c
 │   │   ├── tmpfs.c
@@ -78,20 +89,29 @@
 │   ├── string.c
 │   ├── syscall
 │   │   └── syscall.c
-│   └── tss.c
+│   ├── tss.c
+│   └── userspace
+│       └── init.c
 ├── linker.ld
 ├── scripts
 │   ├── run_qemu_bios.sh
 │   └── run_qemu_uefi.sh
 ├── tests
+│   ├── integration
+│   │   └── test_boot_shell.c
+│   ├── results-20260223
+│   │   └── build.log
 │   ├── smoke_m1.sh
 │   └── unit
 │       ├── test_irq_pci.c
 │       ├── test_net.c
 │       ├── test_sched.c
+│       ├── test_shell.c
 │       ├── test_pmm_kheap.c
 │       └── test_vfs.c
 └── userspace
+    ├── dmesg.c
     ├── http_client.c
     ├── http_server.c
+    ├── shell.c
     └── ping.c

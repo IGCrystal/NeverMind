@@ -2,6 +2,7 @@
 
 #include "nm/console.h"
 #include "nm/io.h"
+#include "nm/klog.h"
 
 #define COM1 0x3F8
 #define VGA_MEM ((volatile uint16_t *)0xB8000)
@@ -75,6 +76,7 @@ void console_init(void)
 
 void console_putc(char c)
 {
+    klog_putc(c);
     serial_putc(c);
     vga_putc(c);
 }

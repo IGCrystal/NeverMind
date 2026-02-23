@@ -51,6 +51,24 @@ M6 引入最小网络栈与 socket API：
 6. TCP 简化连接（三次握手近似）
 7. socket API（bind/listen/accept/connect/sendto/recvfrom）
 
+## M7 范围
+
+M7 引入最小用户空间工具集与 shell 运行链路：
+
+1. shell 内建命令：`echo` / `ls` / `cat`
+2. shell 特性：重定向（`>`）与单级管道（`|`）
+3. 用户态工具源码：`ping` / `http_server` / `http_client`
+4. 集成测试：boot 脚本执行与命令回归
+
+## M8 范围
+
+M8 完成加固与交付流程：
+
+1. 内核日志 ring buffer 与 `dmesg` 工具
+2. release workflow（tag 触发产物归档）
+3. CHANGELOG + 安全审计草稿 + 性能基线草稿
+4. 构建复现日志与最终声明文件
+
 ## 启动链路
 
 1. BIOS 或 UEFI 固件进入 GRUB。
@@ -173,10 +191,37 @@ M1 尚未启用中断与多核并发路径，锁策略在 M3/M5 引入。当前�
 - `nm_sendto/nm_recvfrom/nm_close_socket`
 - UDP 与 TCP 均走统一 API 入口
 
-## 测试策略（M1-M6）
+## 用户态与 Shell（M7）
+
+### Shell 执行模型
+
+- 入口：`shell_execute_line` / `shell_run_script`
+- 命令实现：直接调用 VFS 与 socket API
+- 管道模型：前一命令输出作为后一命令输入（单级）
+
+### 工具集
+
+- `ping`：触发 ICMP echo 请求路径
+- `http_server`：监听 + accept + 响应一个请求
+- `http_client`：连接 + 发送 GET + 接收响应
+
+## 可观测性与发布（M8）
+
+### klog + dmesg
+
+- `klog` 提供内核环形日志缓冲区
+- `dmesg` 读取并输出当前日志快照
+
+### 发布流程
+
+- tag `v*.*.*` 触发 `release.yml`
+- 产物：`kernel.elf` / `kernel-debug.elf` / ISO / map
+
+## 测试策略（M1-M8）
 
 - 构建验证：`make all`
-- 单元测试：`make test`（`pmm`/`kmalloc` + `scheduler` + `vfs` + `irq/pci` + `net/socket` 用户态模拟）
+- 单元测试：`make test`（`pmm`/`kmalloc` + `scheduler` + `vfs` + `irq/pci` + `net/socket` + `shell`）
+- 集成测试：`make integration`（boot shell 脚本回归）
 - 启动验证：`tests/smoke_m1.sh`
-- 验证条件：QEMU 串口日志包含 `NeverMind: M6 net boot ok`
+- 验证条件：QEMU 串口日志包含 `NeverMind: M8 hardening+ci ready`
 - CI 失败策略：任一步骤失败即失败；失败时上传 QEMU 日志作为排障依据。

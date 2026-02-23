@@ -1,0 +1,35 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  build-release:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            gcc binutils make grub-pc-bin grub-common xorriso \
+            qemu-system-x86 ovmf
+
+      - name: Build release artifacts
+        run: |
+          make all
+          cp build/kernel.elf build/kernel-debug.elf
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nevermind-release
+          path: |
+            build/nevermind-m1.iso
+            build/kernel.elf
+            build/kernel-debug.elf
+            build/kernel.map

@@ -18,6 +18,7 @@ BOOT_SRCS := boot/entry.S
 PROC_ASM_SRCS := kernel/proc/switch.S
 KERNEL_SRCS := \
 	kernel/kmain.c \
+	kernel/klog.c \
 	kernel/console.c \
 	kernel/gdt.c \
 	kernel/idt.c \
@@ -43,11 +44,13 @@ KERNEL_SRCS := \
 	kernel/net/icmp.c \
 	kernel/net/udp.c \
 	kernel/net/tcp.c \
-	kernel/net/socket.c
+	kernel/net/socket.c \
+	kernel/userspace/init.c \
+	userspace/shell.c
 
 OBJS := $(BOOT_SRCS:%.S=$(BUILD_DIR)/%.o) $(PROC_ASM_SRCS:%.S=$(BUILD_DIR)/%.o) $(KERNEL_SRCS:%.c=$(BUILD_DIR)/%.o)
 
-.PHONY: all clean iso run-bios run-uefi smoke test
+.PHONY: all clean iso run-bios run-uefi smoke test integration user-tools
 
 all: $(KERNEL_ELF) iso
 
@@ -102,6 +105,29 @@ test:
 	  kernel/net/udp.c kernel/net/tcp.c kernel/net/socket.c kernel/string.c \
 	  -Iinclude -DNEVERMIND_HOST_TEST -o $(BUILD_DIR)/test_net
 	$(BUILD_DIR)/test_net
+	$(CC) -std=c11 -Wall -Wextra -Werror -O2 \
+	  tests/unit/test_shell.c userspace/shell.c kernel/fs/vfs.c kernel/fs/tmpfs.c kernel/fs/ext2.c \
+	  kernel/string.c -Iinclude -DNEVERMIND_HOST_TEST -o $(BUILD_DIR)/test_shell
+	$(BUILD_DIR)/test_shell
+
+integration: test
+	$(CC) -std=c11 -Wall -Wextra -Werror -O2 \
+	  tests/integration/test_boot_shell.c userspace/shell.c kernel/fs/vfs.c kernel/fs/tmpfs.c \
+	  kernel/string.c -Iinclude -DNEVERMIND_HOST_TEST -o $(BUILD_DIR)/test_boot_shell
+	$(BUILD_DIR)/test_boot_shell
+
+user-tools:
+	$(CC) -std=c11 -Wall -Wextra -Werror -O2 userspace/ping.c kernel/net/icmp.c kernel/net/net.c \
+	  -Iinclude -DNEVERMIND_HOST_TEST -o $(BUILD_DIR)/ping
+	$(CC) -std=c11 -Wall -Wextra -Werror -O2 userspace/http_server.c kernel/net/socket.c \
+	  kernel/net/tcp.c kernel/net/udp.c kernel/net/net.c kernel/string.c \
+	  -Iinclude -DNEVERMIND_HOST_TEST -o $(BUILD_DIR)/http_server
+	$(CC) -std=c11 -Wall -Wextra -Werror -O2 userspace/http_client.c kernel/net/socket.c \
+	  kernel/net/tcp.c kernel/net/udp.c kernel/net/net.c kernel/string.c \
+	  -Iinclude -DNEVERMIND_HOST_TEST -o $(BUILD_DIR)/http_client
+	$(CC) -std=c11 -Wall -Wextra -Werror -O2 userspace/dmesg.c kernel/klog.c \
+	  -Iinclude -DNEVERMIND_HOST_TEST -o $(BUILD_DIR)/dmesg
+
 
 
 

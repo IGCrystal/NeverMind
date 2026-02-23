@@ -6,6 +6,7 @@
 #include "nm/idt.h"
 #include "nm/irq.h"
 #include "nm/keyboard.h"
+#include "nm/klog.h"
 #include "nm/mm.h"
 #include "nm/net.h"
 #include "nm/pci.h"
@@ -14,6 +15,7 @@
 #include "nm/syscall.h"
 #include "nm/timer.h"
 #include "nm/tss.h"
+#include "nm/userspace.h"
 
 static void idle_thread(void *arg)
 {
@@ -53,13 +55,14 @@ static void console_write_u64(uint64_t value)
 
 static void kernel_banner(void)
 {
-    console_write("NeverMind kernel (M6)\n");
+    console_write("NeverMind kernel (M8)\n");
     console_write("arch: x86_64\n");
     console_write("boot: BIOS+UEFI via GRUB multiboot2\n");
 }
 
 void kmain(uint64_t mb2_info)
 {
+    klog_init();
     console_init();
     console_write("[00.000000] early console ready\n");
 
@@ -109,8 +112,10 @@ void kmain(uint64_t mb2_info)
     net_init();
     console_write("[00.000900] net ready: arp/ipv4/icmp/udp/tcp/socket\n");
 
+    userspace_init();
+
     kernel_banner();
-    console_write("[00.001000] NeverMind: M6 net boot ok\n");
+    console_write("[00.001000] NeverMind: M8 hardening+ci ready\n");
 
     for (;;) {
         __asm__ volatile("hlt");

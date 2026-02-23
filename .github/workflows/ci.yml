@@ -29,6 +29,12 @@ jobs:
       - name: Run unit tests
         run: make test
 
+      - name: Run integration tests
+        run: make integration
+
+      - name: Build userspace tools
+        run: make user-tools
+
       - name: Static analysis
         run: |
           cppcheck --enable=warning,style,performance --error-exitcode=1 \

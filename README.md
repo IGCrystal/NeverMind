@@ -30,6 +30,18 @@ GPLv2-compatible，见 `LICENSE`。
 make test
 ```
 
+## 集成测试（M7）
+
+```bash
+make integration
+```
+
+## 用户态工具构建（M7）
+
+```bash
+make user-tools
+```
+
 ## 运行（BIOS）
 
 ```bash
@@ -60,7 +72,7 @@ make smoke
 - `userspace/http_server.c`
 - `userspace/http_client.c`
 
-当前仓库提供源码与 socket API 对接示例；独立用户态链接和镜像打包在 M7 完成。
+当前仓库提供源码与 socket API 对接示例；可使用 `make user-tools` 生成宿主侧演示二进制。
 
 ## 预期串口输出（片段）
 
@@ -75,10 +87,11 @@ make smoke
 [00.000700] fs ready: root=tmpfs
 [00.000800] drivers ready: pit/kbd/pci/rtl8139
 [00.000900] net ready: arp/ipv4/icmp/udp/tcp/socket
-NeverMind kernel (M6)
+[00.001100] userspace shell ready
+NeverMind kernel (M8)
 arch: x86_64
 boot: BIOS+UEFI via GRUB multiboot2
-[00.001000] NeverMind: M6 net boot ok
+[00.001000] NeverMind: M8 hardening+ci ready
 ```
 
 ## 里程碑
@@ -89,9 +102,11 @@ boot: BIOS+UEFI via GRUB multiboot2
 - M4 (fs): VFS + tmpfs + ext2 最小实现 + VFS 单测
 - M5 (drivers): IRQ 框架 + PIT + keyboard + PCI 枚举 + RTL8139 骨架 + 单测
 - M6 (network): ARP + IPv4 + ICMP + UDP + TCP + socket API + ping/http 工具源码
-- M7 (userspace): shell 与工具集 + 集成测试
-- M8 (hardening+CI): 安全加固、发布与基线报告
+- M7 (userspace): shell(`ls/cat/echo`) + 管道/重定向 + 集成测试
+- M8 (hardening+CI): klog+dmesg + release workflow + 安全/性能报告
 
 ## 最终声明模板（发布时更新）
 
 本仓库于 YYYY-MM-DD 构建并在 QEMU vX.Y 上通过测试，工具链：clang vX.Y / gcc vX.Y，测试平台：Ubuntu XX，测试结果见 tests/results-YYYYMMDD/。
+
+当前声明见 `FINAL_DECLARATION.md`。
