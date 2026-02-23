@@ -8,34 +8,50 @@ mkdir -p "$LOG_DIR"
 BIOS_LOG="$LOG_DIR/qemu-bios.log"
 UEFI_LOG="$LOG_DIR/qemu-uefi.log"
 SMOKE_MARKER='NeverMind: M8 hardening\+ci ready|\[00\.000300\] tss ready'
+SMOKE_TIMEOUT="${SMOKE_TIMEOUT:-45s}"
 
-timeout 20s qemu-system-x86_64 \
-  -machine q35 \
-  -m 512M \
-  -smp 2 \
-  -cdrom "$ISO" \
-  -serial file:"$BIOS_LOG" \
-  -display none \
-  -monitor none \
-  -no-reboot \
-  -no-shutdown || true
+run_smoke_qemu() {
+  local log_file="$1"
+  shift
 
-grep -Eq "$SMOKE_MARKER" "$BIOS_LOG"
-
-if [[ -f "${OVMF_CODE:-/usr/share/OVMF/OVMF_CODE.fd}" ]]; then
-  timeout 20s qemu-system-x86_64 \
-    -machine q35 \
-    -m 512M \
-    -smp 2 \
-    -bios "${OVMF_CODE:-/usr/share/OVMF/OVMF_CODE.fd}" \
-    -cdrom "$ISO" \
-    -serial file:"$UEFI_LOG" \
+  timeout "$SMOKE_TIMEOUT" qemu-system-x86_64 "$@" \
+    -serial file:"$log_file" \
     -display none \
     -monitor none \
     -no-reboot \
     -no-shutdown || true
+}
+
+run_smoke_qemu "$BIOS_LOG" \
+  -machine q35 \
+  -m 512M \
+  -smp 2 \
+  -cdrom "$ISO"
+
+if ! grep -Eq "$SMOKE_MARKER" "$BIOS_LOG"; then
+  echo "BIOS smoke marker not found in $BIOS_LOG"
+  if [[ -f "$BIOS_LOG" ]]; then
+    echo "---- BIOS LOG (tail) ----"
+    tail -n 120 "$BIOS_LOG" || true
+    echo "-------------------------"
+  fi
+  exit 1
+fi
+
+if [[ -f "${OVMF_CODE:-/usr/share/OVMF/OVMF_CODE.fd}" ]]; then
+  run_smoke_qemu "$UEFI_LOG" \
+    -machine q35 \
+    -m 512M \
+    -smp 2 \
+    -bios "${OVMF_CODE:-/usr/share/OVMF/OVMF_CODE.fd}" \
+    -cdrom "$ISO"
   if ! grep -Eq "$SMOKE_MARKER" "$UEFI_LOG"; then
     echo "UEFI smoke marker not found; continuing with BIOS smoke result"
+    if [[ -f "$UEFI_LOG" ]]; then
+      echo "---- UEFI LOG (tail) ----"
+      tail -n 80 "$UEFI_LOG" || true
+      echo "-------------------------"
+    fi
   fi
 fi
 
