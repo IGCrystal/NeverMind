@@ -29,6 +29,16 @@ M4 引入文件系统基础层：
 2. tmpfs：内存文件系统（目录树、文件读写、stat）
 3. ext2：最小 inode/dir/block 元数据骨架与读写路径
 
+## M5 范围
+
+M5 引入设备驱动框架与中断驱动模型：
+
+1. IRQ 注册与分发（top-half/bottom-half）
+2. PIT 定时器驱动
+3. 键盘中断驱动
+4. PCI 枚举与设备发现
+5. RTL8139 网卡最小驱动骨架
+
 ## 启动链路
 
 1. BIOS 或 UEFI 固件进入 GRUB。
@@ -111,10 +121,28 @@ M1 尚未启用中断与多核并发路径，锁策略在 M3/M5 引入。当前�
 - 目录项：vnode children 链接
 - 限制：当前为最小可测实现骨架，磁盘块组完整语义在后续版本补齐
 
-## 测试策略（M1-M4）
+## 驱动与中断（M5）
+
+### IRQ 框架
+
+- 接口：`irq_register/irq_handle/irq_run_bottom_halves`
+- 模型：中断 top-half 快速处理，延后工作由 bottom-half 队列执行
+- 统计：每个 IRQ 维护 `hit_count`
+
+### 定时器与输入
+
+- PIT：可配置频率，注册在 IRQ32
+- Keyboard：注册 IRQ33，扫描码转 ASCII（基础映射）
+
+### PCI 与网卡
+
+- PCI：扫描 bus/slot，提取 vendor/device/class 与 BAR0
+- RTL8139：通过 PCI ID `10EC:8139` 探测，提供发送/接收接口骨架
+
+## 测试策略（M1-M5）
 
 - 构建验证：`make all`
-- 单元测试：`make test`（`pmm`/`kmalloc` + `scheduler` + `vfs` 用户态模拟）
+- 单元测试：`make test`（`pmm`/`kmalloc` + `scheduler` + `vfs` + `irq/pci` 用户态模拟）
 - 启动验证：`tests/smoke_m1.sh`
-- 验证条件：QEMU 串口日志包含 `NeverMind: M4 fs boot ok`
+- 验证条件：QEMU 串口日志包含 `NeverMind: M5 drivers boot ok`
 - CI 失败策略：任一步骤失败即失败；失败时上传 QEMU 日志作为排障依据。

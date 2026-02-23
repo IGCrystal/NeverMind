@@ -4,9 +4,14 @@
 #include "nm/fs.h"
 #include "nm/gdt.h"
 #include "nm/idt.h"
+#include "nm/irq.h"
+#include "nm/keyboard.h"
 #include "nm/mm.h"
+#include "nm/pci.h"
 #include "nm/proc.h"
+#include "nm/rtl8139.h"
 #include "nm/syscall.h"
+#include "nm/timer.h"
 #include "nm/tss.h"
 
 static void idle_thread(void *arg)
@@ -47,7 +52,7 @@ static void console_write_u64(uint64_t value)
 
 static void kernel_banner(void)
 {
-    console_write("NeverMind kernel (M2)\n");
+    console_write("NeverMind kernel (M5)\n");
     console_write("arch: x86_64\n");
     console_write("boot: BIOS+UEFI via GRUB multiboot2\n");
 }
@@ -90,8 +95,18 @@ void kmain(uint64_t mb2_info)
         console_write("[00.000700] fs ready: mount failed\n");
     }
 
+    irq_init();
+    pit_init(100);
+    keyboard_init();
+    pci_init();
+    if (rtl8139_init() == 0) {
+        console_write("[00.000800] drivers ready: pit/kbd/pci/rtl8139\n");
+    } else {
+        console_write("[00.000800] drivers ready: pit/kbd/pci (rtl8139 missing)\n");
+    }
+
     kernel_banner();
-    console_write("[00.001000] NeverMind: M4 fs boot ok\n");
+    console_write("[00.001000] NeverMind: M5 drivers boot ok\n");
 
     for (;;) {
         __asm__ volatile("hlt");

@@ -31,7 +31,12 @@ KERNEL_SRCS := \
 	kernel/syscall/syscall.c \
 	kernel/fs/vfs.c \
 	kernel/fs/tmpfs.c \
-	kernel/fs/ext2.c
+	kernel/fs/ext2.c \
+	kernel/drivers/irq.c \
+	kernel/drivers/pit.c \
+	kernel/drivers/keyboard.c \
+	kernel/drivers/pci.c \
+	kernel/drivers/rtl8139.c
 
 OBJS := $(BOOT_SRCS:%.S=$(BUILD_DIR)/%.o) $(PROC_ASM_SRCS:%.S=$(BUILD_DIR)/%.o) $(KERNEL_SRCS:%.c=$(BUILD_DIR)/%.o)
 
@@ -81,6 +86,11 @@ test:
 	  tests/unit/test_vfs.c kernel/fs/vfs.c kernel/fs/tmpfs.c kernel/fs/ext2.c kernel/string.c \
 	  -Iinclude -DNEVERMIND_HOST_TEST -o $(BUILD_DIR)/test_vfs
 	$(BUILD_DIR)/test_vfs
+	$(CC) -std=c11 -Wall -Wextra -Werror -O2 \
+	  tests/unit/test_irq_pci.c kernel/drivers/irq.c kernel/drivers/pci.c kernel/string.c \
+	  -Iinclude -DNEVERMIND_HOST_TEST -o $(BUILD_DIR)/test_irq_pci
+	$(BUILD_DIR)/test_irq_pci
+
 
 
 clean:
