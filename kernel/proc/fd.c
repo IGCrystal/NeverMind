@@ -53,14 +53,14 @@ static inline void fd_unlock(void)
 static int alloc_task_fd(const struct nm_task *task)
 {
     if (task == 0) {
-        return NM_ERR(NM_EFAIL);
+        return NM_ERR(NM_EINVAL);
     }
     for (int i = 0; i < NM_MAX_FDS; i++) {
         if (task->fd_table[i] == -1) {
             return i;
         }
     }
-    return NM_ERR(NM_EFAIL);
+    return NM_ERR(NM_ENOMEM);
 }
 
 static int alloc_fdobj(void)
@@ -75,7 +75,7 @@ static int alloc_fdobj(void)
             return i;
         }
     }
-    return NM_ERR(NM_EFAIL);
+    return NM_ERR(NM_ENOMEM);
 }
 
 static struct nm_fdobj *fdobj_get(int32_t id)
@@ -135,7 +135,7 @@ static int fdobj_retain(int32_t id)
 {
     struct nm_fdobj *obj = fdobj_get(id);
     if (obj == 0) {
-        return NM_ERR(NM_EFAIL);
+        return NM_ERR(NM_ENOENT);
     }
 
     obj->refcnt++;
@@ -147,7 +147,7 @@ static int fdobj_release(int32_t id)
 {
     struct nm_fdobj *obj = fdobj_get(id);
     if (obj == 0 || obj->refcnt == 0) {
-        return NM_ERR(NM_EFAIL);
+        return NM_ERR(NM_ENOENT);
     }
 
     pipe_on_endpoint_release(obj->kind, obj->pipe_id);
@@ -171,7 +171,7 @@ static int fdobj_release(int32_t id)
 static int32_t task_fdobj_id(struct nm_task *task, int32_t fd)
 {
     if (task == 0 || fd < 0 || fd >= NM_MAX_FDS) {
-        return NM_ERR(NM_EFAIL);
+        return NM_ERR(NM_EINVAL);
     }
     return task->fd_table[fd];
 }
@@ -179,7 +179,7 @@ static int32_t task_fdobj_id(struct nm_task *task, int32_t fd)
 static int task_install_fdobj(struct nm_task *task, int32_t fd, int32_t obj_id)
 {
     if (task == 0 || fd < 0 || fd >= NM_MAX_FDS) {
-        return NM_ERR(NM_EFAIL);
+        return NM_ERR(NM_EINVAL);
     }
     task->fd_table[fd] = obj_id;
     return 0;
@@ -188,16 +188,16 @@ static int task_install_fdobj(struct nm_task *task, int32_t fd, int32_t obj_id)
 static int task_close_fd(struct nm_task *task, int32_t fd)
 {
     if (task == 0 || fd < 0 || fd >= NM_MAX_FDS) {
-        return NM_ERR(NM_EFAIL);
+        return NM_ERR(NM_EINVAL);
     }
 
     int32_t obj_id = task->fd_table[fd];
     if (obj_id == -1) {
-        return NM_ERR(NM_EFAIL);
+        return NM_ERR(NM_ENOENT);
     }
 
     if (fdobj_release(obj_id) != 0) {
-        return NM_ERR(NM_EFAIL);
+        return NM_ERR(NM_ENOENT);
     }
     task->fd_table[fd] = -1;
     task->fd_cloexec_mask &= ~(1U << (uint32_t)fd);
@@ -208,7 +208,7 @@ static int create_pipe_endpoint_obj(enum nm_fdobj_kind kind, int32_t pipe_id)
 {
     int obj_id = alloc_fdobj();
     if (obj_id < 0) {
-        return NM_ERR(NM_EFAIL);
+        return NM_ERR(NM_ENOMEM);
     }
 
     struct nm_fdobj *obj = &fdobj_table[obj_id];
@@ -222,7 +222,7 @@ static int create_fs_obj(int32_t fs_fd)
 {
     int obj_id = alloc_fdobj();
     if (obj_id < 0) {
-        return NM_ERR(NM_EFAIL);
+        return NM_ERR(NM_ENOMEM);
     }
 
     struct nm_fdobj *obj = &fdobj_table[obj_id];
@@ -308,7 +308,7 @@ static int adopt_legacy_fs_fd(struct nm_task *task, int32_t fd)
 {
     int32_t legacy = task_fdobj_id(task, fd);
     if (legacy < 0 || legacy >= NM_FDOBJ_MAX) {
-        return NM_ERR(NM_EFAIL);
+        return NM_ERR(NM_EINVAL);
     }
 
     const struct nm_fdobj *obj = fdobj_get(legacy);
@@ -318,7 +318,7 @@ static int adopt_legacy_fs_fd(struct nm_task *task, int32_t fd)
 
     int obj_id = create_fs_obj(legacy);
     if (obj_id < 0) {
-        return NM_ERR(NM_EFAIL);
+        return NM_ERR(NM_ENOMEM);
     }
 
     (void)task_install_fdobj(task, fd, obj_id);
@@ -352,13 +352,13 @@ int64_t nm_fd_read(struct nm_task *task, int32_t fd, void *buf, uint64_t len)
     fd_lock();
     if (task == 0 || buf == 0) {
         fd_unlock();
-        return NM_ERR(NM_EFAIL);
+        return NM_ERR(NM_EINVAL);
     }
 
     int32_t obj_id = task_fdobj_id(task, fd);
     if (obj_id == -1) {
         fd_unlock();
-        return NM_ERR(NM_EFAIL);
+        return NM_ERR(NM_ENOENT);
     }
 
     if (obj_id >= 0 && obj_id < NM_FDOBJ_MAX) {
@@ -381,7 +381,7 @@ int64_t nm_fd_read(struct nm_task *task, int32_t fd, void *buf, uint64_t len)
     }
 
     fd_unlock();
-    return NM_ERR(NM_EFAIL);
+    return NM_ERR(NM_ENOENT);
 }
 
 int64_t nm_fd_write(struct nm_task *task, int32_t fd, const void *buf, uint64_t len)
@@ -389,13 +389,13 @@ int64_t nm_fd_write(struct nm_task *task, int32_t fd, const void *buf, uint64_t 
     fd_lock();
     if (task == 0 || buf == 0) {
         fd_unlock();
-        return NM_ERR(NM_EFAIL);
+        return NM_ERR(NM_EINVAL);
     }
 
     int32_t obj_id = task_fdobj_id(task, fd);
     if (obj_id == -1) {
         fd_unlock();
-        return NM_ERR(NM_EFAIL);
+        return NM_ERR(NM_ENOENT);
     }
 
     if (obj_id >= 0 && obj_id < NM_FDOBJ_MAX) {
@@ -418,7 +418,7 @@ int64_t nm_fd_write(struct nm_task *task, int32_t fd, const void *buf, uint64_t 
     }
 
     fd_unlock();
-    return NM_ERR(NM_EFAIL);
+    return NM_ERR(NM_ENOENT);
 }
 
 int nm_fd_close(struct nm_task *task, int32_t fd)
@@ -426,13 +426,13 @@ int nm_fd_close(struct nm_task *task, int32_t fd)
     fd_lock();
     if (task == 0 || fd < 0 || fd >= NM_MAX_FDS) {
         fd_unlock();
-        return NM_ERR(NM_EFAIL);
+        return NM_ERR(NM_EINVAL);
     }
 
     int32_t obj_id = task_fdobj_id(task, fd);
     if (obj_id == -1) {
         fd_unlock();
-        return NM_ERR(NM_EFAIL);
+        return NM_ERR(NM_ENOENT);
     }
 
     if (obj_id >= 0 && obj_id < NM_FDOBJ_MAX && fdobj_get(obj_id) == 0) {
@@ -452,7 +452,7 @@ int nm_fd_pipe(struct nm_task *task, int32_t *read_fd, int32_t *write_fd)
     fd_lock();
     if (task == 0 || read_fd == 0 || write_fd == 0) {
         fd_unlock();
-        return NM_ERR(NM_EFAIL);
+        return NM_ERR(NM_EINVAL);
     }
 
     int pipe_id = -1;
@@ -464,13 +464,13 @@ int nm_fd_pipe(struct nm_task *task, int32_t *read_fd, int32_t *write_fd)
     }
     if (pipe_id < 0) {
         fd_unlock();
-        return NM_ERR(NM_EFAIL);
+        return NM_ERR(NM_ENOMEM);
     }
 
     int rd = alloc_task_fd(task);
     if (rd < 0) {
         fd_unlock();
-        return NM_ERR(NM_EFAIL);
+        return NM_ERR(NM_ENOMEM);
     }
     task->fd_table[rd] = -2;
 
@@ -478,7 +478,7 @@ int nm_fd_pipe(struct nm_task *task, int32_t *read_fd, int32_t *write_fd)
     if (wr < 0) {
         task->fd_table[rd] = -1;
         fd_unlock();
-        return NM_ERR(NM_EFAIL);
+        return NM_ERR(NM_ENOMEM);
     }
 
     pipe_table[pipe_id].used = 1;
@@ -494,7 +494,7 @@ int nm_fd_pipe(struct nm_task *task, int32_t *read_fd, int32_t *write_fd)
         pipe_table[pipe_id].readers = 0;
         pipe_table[pipe_id].writers = 0;
         fd_unlock();
-        return NM_ERR(NM_EFAIL);
+        return NM_ERR(NM_ENOMEM);
     }
 
     int wr_obj = create_pipe_endpoint_obj(NM_FDOBJ_PIPE_W, pipe_id);
@@ -505,7 +505,7 @@ int nm_fd_pipe(struct nm_task *task, int32_t *read_fd, int32_t *write_fd)
         pipe_table[pipe_id].readers = 0;
         pipe_table[pipe_id].writers = 0;
         fd_unlock();
-        return NM_ERR(NM_EFAIL);
+        return NM_ERR(NM_ENOMEM);
     }
 
     (void)task_install_fdobj(task, rd, rd_obj);
@@ -522,13 +522,13 @@ int64_t nm_fd_dup2(struct nm_task *task, int32_t oldfd, int32_t newfd)
     fd_lock();
     if (task == 0 || oldfd < 0 || newfd < 0 || oldfd >= NM_MAX_FDS || newfd >= NM_MAX_FDS) {
         fd_unlock();
-        return NM_ERR(NM_EFAIL);
+        return NM_ERR(NM_EINVAL);
     }
 
     int32_t old_obj = task_fdobj_id(task, oldfd);
     if (old_obj == -1) {
         fd_unlock();
-        return NM_ERR(NM_EFAIL);
+        return NM_ERR(NM_ENOENT);
     }
 
     if (oldfd == newfd) {
@@ -558,7 +558,7 @@ int nm_fd_on_fork_child(struct nm_task *child)
     fd_lock();
     if (child == 0) {
         fd_unlock();
-        return NM_ERR(NM_EFAIL);
+        return NM_ERR(NM_EINVAL);
     }
 
     for (int i = 0; i < NM_MAX_FDS; i++) {
@@ -576,7 +576,7 @@ int nm_fd_set_cloexec(struct nm_task *task, int32_t fd, int enabled)
     fd_lock();
     if (task == 0 || fd < 0 || fd >= NM_MAX_FDS || task->fd_table[fd] == -1) {
         fd_unlock();
-        return NM_ERR(NM_EFAIL);
+        return NM_ERR(NM_EINVAL);
     }
 
     uint32_t bit = 1U << (uint32_t)fd;
@@ -594,7 +594,7 @@ int nm_fd_get_cloexec(const struct nm_task *task, int32_t fd)
     fd_lock();
     if (task == 0 || fd < 0 || fd >= NM_MAX_FDS || task->fd_table[fd] == -1) {
         fd_unlock();
-        return NM_ERR(NM_EFAIL);
+        return NM_ERR(NM_EINVAL);
     }
 
     uint32_t bit = 1U << (uint32_t)fd;

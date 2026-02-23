@@ -43,3 +43,4 @@
 - 查找失败场景开始返回 `NM_ENOENT`（示例：`nm_exec_resolve_entry` 未命中）。
 - 分配失败场景开始返回 `NM_ENOMEM`（示例：`tmpfs_reserve` 扩容分配失败）。
 - 资源繁忙场景开始返回 `NM_EBUSY`（示例：IRQ bottom-half 队列满）。
+- `proc/fd` 子系统已进入第二层细分：参数非法优先 `NM_EINVAL`，资源槽耗尽优先 `NM_ENOMEM`，对象缺失优先 `NM_ENOENT`。
