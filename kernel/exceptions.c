@@ -19,6 +19,10 @@ __attribute__((noreturn)) void nm_exception_dispatch(const uint64_t *stack)
     uint64_t rip = stack[2];
     uint64_t cs = stack[3];
     uint64_t rflags = stack[4];
+    uint64_t cr2 = 0;
+    if (vec == 14) {
+        __asm__ volatile("mov %%cr2, %0" : "=r"(cr2));
+    }
 
     console_write("[EXC] vec=");
     console_write_hex_u64(vec);
@@ -30,6 +34,12 @@ __attribute__((noreturn)) void nm_exception_dispatch(const uint64_t *stack)
     console_write_hex_u64(cs);
     console_write(" rflags=");
     console_write_hex_u64(rflags);
+    if (vec == 14) {
+        console_write(" cr2=");
+        console_write_hex_u64(cr2);
+    }
+    console_write(" rsp=");
+    console_write_hex_u64((uint64_t)(uintptr_t)stack);
     console_write("\n");
 
     __asm__ volatile("cli");

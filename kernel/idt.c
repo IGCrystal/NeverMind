@@ -7,6 +7,9 @@ extern void nm_isr_df(void);
 extern void nm_isr_gp(void);
 extern void nm_isr_pf(void);
 
+extern void nm_isr_irq0(void);
+extern void nm_isr_irq1(void);
+
 struct __attribute__((packed)) idt_gate {
     uint16_t offset_low;
     uint16_t selector;
@@ -49,6 +52,10 @@ void idt_init(void)
     idt_set_gate(8, (uint64_t)nm_isr_df, 0x8E, 0);
     idt_set_gate(13, (uint64_t)nm_isr_gp, 0x8E, 0);
     idt_set_gate(14, (uint64_t)nm_isr_pf, 0x8E, 0);
+
+    // PIC remapped IRQs (timer/keyboard)
+    idt_set_gate(32, (uint64_t)nm_isr_irq0, 0x8E, 0);
+    idt_set_gate(33, (uint64_t)nm_isr_irq1, 0x8E, 0);
 
     struct idt_ptr idtp = {
         .limit = (uint16_t)(sizeof(idt) - 1),

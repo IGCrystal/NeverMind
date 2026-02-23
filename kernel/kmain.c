@@ -10,6 +10,7 @@
 #include "nm/mm.h"
 #include "nm/net.h"
 #include "nm/pci.h"
+#include "nm/pic.h"
 #include "nm/proc.h"
 #include "nm/rtl8139.h"
 #include "nm/syscall.h"
@@ -21,6 +22,7 @@ static void idle_thread(void *arg)
 {
     (void)arg;
     for (;;) {
+        sched_yield();
         __asm__ volatile("hlt");
     }
 }
@@ -29,6 +31,7 @@ static void worker_thread(void *arg)
 {
     (void)arg;
     for (;;) {
+        sched_yield();
         __asm__ volatile("pause");
     }
 }
@@ -121,6 +124,7 @@ void kmain(uint64_t mb2_info)
     }
 
     irq_init();
+    pic_init();
     pit_init(100);
     keyboard_init();
     pci_init();
@@ -138,7 +142,11 @@ void kmain(uint64_t mb2_info)
     kernel_banner();
     console_write("[00.001000] NeverMind: M8 hardening+ci ready\n");
 
+    __asm__ volatile("sti");
+
     for (;;) {
+        irq_run_bottom_halves();
+        sched_yield();
         __asm__ volatile("hlt");
     }
 }

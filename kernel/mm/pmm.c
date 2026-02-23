@@ -146,6 +146,9 @@ void *pmm_host_ptr_from_key(uint64_t key)
 
 #else
 
+extern uint8_t __kernel_phys_start[];
+extern uint8_t __kernel_phys_end[];
+
 static inline bool frame_valid(uint64_t frame)
 {
     return frame < MAX_FRAMES;
@@ -237,6 +240,8 @@ void pmm_init_from_multiboot2(uint64_t mb2_info_ptr)
     if (mb2_info_ptr == 0) {
         mark_all_used();
         reserve_range(0, 0x100000);
+        reserve_range((uint64_t)(uintptr_t)__kernel_phys_start,
+                      (uint64_t)(uintptr_t)(__kernel_phys_end - __kernel_phys_start));
         return;
     }
 
@@ -270,6 +275,13 @@ void pmm_init_from_multiboot2(uint64_t mb2_info_ptr)
     }
 
     reserve_range(0, 0x100000);
+
+    // Do not allocate pages that overlap the kernel image, boot stack, or boot page tables.
+    reserve_range((uint64_t)(uintptr_t)__kernel_phys_start,
+                  (uint64_t)(uintptr_t)(__kernel_phys_end - __kernel_phys_start));
+
+    // Keep the multiboot2 info structure intact after parsing.
+    reserve_range(mb2_info_ptr, hdr->total_size);
 }
 
 uint64_t pmm_alloc_page(void)

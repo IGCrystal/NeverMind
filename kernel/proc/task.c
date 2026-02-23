@@ -13,6 +13,10 @@ static size_t task_used;
 static int32_t next_pid = 1;
 static struct nm_task *current_task;
 
+#ifndef NEVERMIND_HOST_TEST
+extern void nm_kthread_trampoline(void);
+#endif
+
 #ifdef NEVERMIND_HOST_TEST
 static uint8_t host_stacks[NM_MAX_TASKS][KSTACK_SIZE];
 static size_t host_stack_cursor;
@@ -75,6 +79,8 @@ void proc_init(void)
         task_table[i].exit_code = 0;
         task_table[i].argc = 0;
         task_table[i].envc = 0;
+        task_table[i].sched.rr_budget = 0;
+        task_table[i].saved_rsp = 0;
     }
     task_used = 0;
     next_pid = 1;
@@ -95,10 +101,12 @@ void proc_init(void)
     bootstrap->sched.priority = 20;
     bootstrap->sched.timeslice_ticks = 4;
     bootstrap->sched.vruntime = 0;
+    bootstrap->sched.rr_budget = 0;
     bootstrap->fd_cloexec_mask = 0;
     bootstrap->exit_code = 0;
     bootstrap->argc = 0;
     bootstrap->envc = 0;
+    bootstrap->saved_rsp = 0;
     copy_name(bootstrap->name, "bootstrap", NM_TASK_NAME_MAX);
     for (size_t i = 0; i < NM_MAX_FDS; i++) {
         bootstrap->fd_table[i] = -1;
@@ -109,8 +117,6 @@ void proc_init(void)
 
 struct nm_task *task_create_kernel_thread(const char *name, void (*entry)(void *), void *arg)
 {
-    (void)arg;
-
     struct nm_task *task = alloc_task_slot();
     if (task == 0) {
         return 0;
@@ -128,11 +134,34 @@ struct nm_task *task_create_kernel_thread(const char *name, void (*entry)(void *
     task->sched.priority = 20;
     task->sched.timeslice_ticks = 4;
     task->sched.vruntime = 0;
+    task->sched.rr_budget = 0;
     task->fd_cloexec_mask = 0;
     task->exit_code = 0;
     task->argc = 0;
     task->envc = 0;
     task->kernel_stack_top = (uint64_t *)(uintptr_t)(kstack + KSTACK_SIZE);
+
+#ifndef NEVERMIND_HOST_TEST
+    uint64_t *sp = task->kernel_stack_top;
+    sp = (uint64_t *)((uintptr_t)sp & ~0xFULL);
+    *(--sp) = (uint64_t)(uintptr_t)arg;
+    *(--sp) = (uint64_t)(uintptr_t)entry;
+    *(--sp) = (uint64_t)(uintptr_t)&nm_kthread_trampoline;
+    // nm_context_switch restores callee-saved registers from the new stack
+    // before returning, so pre-populate them for a first-time switch-in.
+    *(--sp) = 0; // rbp
+    *(--sp) = 0; // rbx
+    *(--sp) = 0; // r12
+    *(--sp) = 0; // r13
+    *(--sp) = 0; // r14
+    *(--sp) = 0; // r15
+    task->saved_rsp = sp;
+#else
+    (void)entry;
+    (void)arg;
+    task->saved_rsp = task->kernel_stack_top;
+#endif
+
     task->regs.rsp = (uint64_t)(uintptr_t)task->kernel_stack_top;
     task->regs.rip = (uint64_t)(uintptr_t)entry;
     task->entry_name = name;
@@ -208,9 +237,11 @@ struct nm_task *proc_fork_current(void)
     child->ppid = current_task->pid;
     child->state = NM_TASK_RUNNABLE;
     child->exit_code = 0;
+    child->sched.rr_budget = 0;
     child->kernel_stack_top = (uint64_t *)(uintptr_t)(kstack + KSTACK_SIZE);
     child->regs.rsp = (uint64_t)(uintptr_t)child->kernel_stack_top;
     child->regs.rax = 0;
+    child->saved_rsp = child->kernel_stack_top;
 
     task_used++;
     return child;

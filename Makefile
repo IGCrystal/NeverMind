@@ -25,13 +25,16 @@ ISO_IMAGE := $(BUILD_DIR)/nevermind-m1.iso
 
 BOOT_SRCS := boot/entry.S
 PROC_ASM_SRCS := kernel/proc/switch.S \
-	kernel/idt_exceptions.S
+	kernel/idt_exceptions.S \
+	kernel/idt_irqs.S \
+	kernel/proc/kthread_trampoline.S
 KERNEL_SRCS := \
 	kernel/kmain.c \
 	kernel/klog.c \
 	kernel/console.c \
 	kernel/gdt.c \
 	kernel/idt.c \
+	kernel/irq_isr.c \
 	kernel/exceptions.c \
 	kernel/tss.c \
 	kernel/string.c \
@@ -47,6 +50,7 @@ KERNEL_SRCS := \
 	kernel/fs/tmpfs.c \
 	kernel/fs/ext2.c \
 	kernel/drivers/irq.c \
+	kernel/drivers/pic.c \
 	kernel/drivers/pit.c \
 	kernel/drivers/keyboard.c \
 	kernel/drivers/pci.c \

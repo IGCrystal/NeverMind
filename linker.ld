@@ -16,6 +16,8 @@ SECTIONS
 {
     . = KERNEL_PHYS_BASE;
 
+    __kernel_phys_start = .;
+
     .boot.text : ALIGN(4K)
     {
         KEEP(*(.multiboot2))
@@ -51,6 +53,8 @@ SECTIONS
         *(COMMON)
         *(.bss*)
     } :data
+
+    __kernel_phys_end = LOADADDR(.bss) + SIZEOF(.bss);
 
     /DISCARD/ :
     {

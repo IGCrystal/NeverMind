@@ -3,11 +3,12 @@
 #include <stddef.h>
 #include <stdint.h>
 
-extern void nm_set_current_task(struct nm_task *task);
+#ifndef NEVERMIND_HOST_TEST
+extern void nm_context_switch(uint64_t **old_rsp, uint64_t *new_rsp);
+#endif
 
 static enum nm_sched_policy global_policy = NM_SCHED_RR;
 static size_t rr_cursor;
-static uint64_t rr_budget;
 
 static uint32_t priority_weight(uint32_t priority)
 {
@@ -21,7 +22,6 @@ void sched_init(enum nm_sched_policy policy)
 {
     global_policy = policy;
     rr_cursor = 0;
-    rr_budget = 0;
 }
 
 void sched_set_policy(enum nm_sched_policy policy)
@@ -36,11 +36,13 @@ enum nm_sched_policy sched_get_policy(void)
 
 static struct nm_task *pick_rr(void)
 {
+    struct nm_task *cur = task_current();
     for (size_t probe = 0; probe < 128; probe++) {
         size_t idx = (rr_cursor + probe) % 128;
         struct nm_task *task = task_by_index(idx);
         if (task != 0 &&
-            (task->state == NM_TASK_RUNNABLE || task->state == NM_TASK_RUNNING)) {
+            (task->state == NM_TASK_RUNNABLE || task->state == NM_TASK_RUNNING) &&
+            (task == cur || task->saved_rsp != 0)) {
             rr_cursor = (idx + 1) % 128;
             return task;
         }
@@ -51,6 +53,7 @@ static struct nm_task *pick_rr(void)
 static struct nm_task *pick_cfs(void)
 {
     struct nm_task *best = 0;
+    struct nm_task *cur = task_current();
 
     for (size_t idx = 0; idx < 128; idx++) {
         struct nm_task *task = task_by_index(idx);
@@ -58,6 +61,10 @@ static struct nm_task *pick_cfs(void)
             continue;
         }
         if (task->state != NM_TASK_RUNNABLE) {
+            continue;
+        }
+
+        if (task != cur && task->saved_rsp == 0) {
             continue;
         }
 
@@ -76,6 +83,10 @@ static struct nm_task *pick_cfs(void)
             continue;
         }
         if (task->state != NM_TASK_RUNNING) {
+            continue;
+        }
+
+        if (task != cur && task->saved_rsp == 0) {
             continue;
         }
 
@@ -110,9 +121,9 @@ void sched_on_run(struct nm_task *task, uint64_t ticks)
         return;
     }
 
-    rr_budget += ticks;
-    if (rr_budget >= task->sched.timeslice_ticks) {
-        rr_budget = 0;
+    task->sched.rr_budget += ticks;
+    if (task->sched.rr_budget >= task->sched.timeslice_ticks) {
+        task->sched.rr_budget = 0;
         task->state = NM_TASK_RUNNABLE;
     }
 }
@@ -132,5 +143,28 @@ void sched_tick(uint64_t ticks)
 
     cur->state = NM_TASK_RUNNABLE;
     next->state = NM_TASK_RUNNING;
-    nm_set_current_task(next);
+    proc_set_current(next);
+}
+
+void sched_yield(void)
+{
+    struct nm_task *cur = task_current();
+    if (cur == 0) {
+        return;
+    }
+
+    struct nm_task *next = sched_pick_next();
+    if (next == 0 || next == cur) {
+        return;
+    }
+
+    cur->state = NM_TASK_RUNNABLE;
+    next->state = NM_TASK_RUNNING;
+    proc_set_current(next);
+
+#ifndef NEVERMIND_HOST_TEST
+    if (next->saved_rsp != 0) {
+        nm_context_switch(&cur->saved_rsp, next->saved_rsp);
+    }
+#endif
 }

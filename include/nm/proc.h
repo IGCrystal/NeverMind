@@ -46,6 +46,7 @@ struct nm_sched_param {
     uint32_t priority;
     uint32_t timeslice_ticks;
     uint64_t vruntime;
+    uint64_t rr_budget;
 };
 
 struct nm_task {
@@ -63,6 +64,7 @@ struct nm_task {
     uint32_t envc;
     struct nm_sched_param sched;
     uint64_t *kernel_stack_top;
+    uint64_t *saved_rsp;
     const char *entry_name;
     char name[NM_TASK_NAME_MAX];
 };
@@ -84,6 +86,7 @@ void sched_init(enum nm_sched_policy policy);
 void sched_set_policy(enum nm_sched_policy policy);
 enum nm_sched_policy sched_get_policy(void);
 void sched_tick(uint64_t ticks);
+void sched_yield(void);
 struct nm_task *sched_pick_next(void);
 void sched_on_run(struct nm_task *task, uint64_t ticks);
 
