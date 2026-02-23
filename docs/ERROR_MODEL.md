@@ -16,6 +16,8 @@
 - 阶段 2（进行中）：`kernel/fs/vfs.c` 与 `kernel/net/{socket,tcp,udp}.c` 的公共错误返回已迁移到 `NM_ERR(...)` 常量写法（数值行为保持兼容）。
 - 阶段 2（进行中）：`kernel/proc/{fd,task,exec_registry}.c` 的导出接口错误返回已迁移到 `NM_ERR(...)` 常量写法。
 - 阶段 2（进行中）：`kernel/net/net.c` 与 `kernel/fs/{tmpfs,ext2}.c` 的错误返回已迁移到 `NM_ERR(...)` 常量写法。
+- 阶段 2（进行中）：`kernel/drivers/irq.c` 的错误返回已迁移到 `NM_ERR(...)` 常量写法。
+- 审计记录：`kernel/net/{arp,ipv4}.c` 当前不存在裸 `return -1` 路径，本轮无需改动。
 
 ## 3. 子系统约束
 

@@ -2,6 +2,8 @@
 
 #include <stddef.h>
 
+#include "nm/errno.h"
+
 #define NM_BH_QUEUE_CAP 256
 
 struct bh_item {
@@ -31,7 +33,7 @@ static int bh_enqueue(nm_irq_bottom_half_t fn, void *ctx)
 {
     size_t next = (bh_tail + 1) % NM_BH_QUEUE_CAP;
     if (next == bh_head) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
     bh_queue[bh_tail].fn = fn;
     bh_queue[bh_tail].ctx = ctx;
@@ -61,7 +63,7 @@ int irq_register(int irq, nm_irq_top_half_t top_half, nm_irq_bottom_half_t botto
                  const char *name)
 {
     if (irq < 0 || irq >= NM_MAX_IRQ || top_half == 0) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
     irq_lock();
     irq_table[irq].used = true;
@@ -77,7 +79,7 @@ int irq_register(int irq, nm_irq_top_half_t top_half, nm_irq_bottom_half_t botto
 int irq_unregister(int irq)
 {
     if (irq < 0 || irq >= NM_MAX_IRQ) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
     irq_lock();
     irq_table[irq].used = false;
@@ -93,13 +95,13 @@ int irq_unregister(int irq)
 int irq_handle(int irq)
 {
     if (irq < 0 || irq >= NM_MAX_IRQ) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     irq_lock();
     if (!irq_table[irq].used || irq_table[irq].top_half == 0) {
         irq_unlock();
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     nm_irq_top_half_t top_half = irq_table[irq].top_half;
