@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "nm/errno.h"
 #include "nm/net.h"
 
 #define SOCK_MAX 64
@@ -57,16 +58,16 @@ static int alloc_socket_unlocked(int type, int protocol)
             return i;
         }
     }
-    return -1;
+    return NM_ERR(NM_EFAIL);
 }
 
 int nm_socket(int domain, int type, int protocol)
 {
     if (domain != NM_AF_INET) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
     if (type != NM_SOCK_DGRAM && type != NM_SOCK_STREAM) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     sock_lock();
@@ -81,7 +82,7 @@ int nm_bind(int sockfd, const struct nm_sockaddr_in *addr)
     struct nm_socket_entry *s = get_sock(sockfd);
     if (!s || !addr || addr->sin_family != NM_AF_INET) {
         sock_unlock();
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
     uint16_t old_port = s->local_port;
     s->local_port = addr->sin_port;
@@ -96,7 +97,7 @@ int nm_bind(int sockfd, const struct nm_sockaddr_in *addr)
                 s->local_port = old_port;
             }
             sock_unlock();
-            return -1;
+            return NM_ERR(NM_EFAIL);
         }
     }
     return 0;
@@ -109,14 +110,14 @@ int nm_listen(int sockfd, int backlog)
     struct nm_socket_entry *s = get_sock(sockfd);
     if (!s || s->type != NM_SOCK_STREAM || s->local_port == 0) {
         sock_unlock();
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
     uint16_t port = s->local_port;
     sock_unlock();
 
     int id = tcp_listen(port);
     if (id < 0) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     sock_lock();
@@ -124,7 +125,7 @@ int nm_listen(int sockfd, int backlog)
     if (!s) {
         sock_unlock();
         (void)tcp_close(id);
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
     s->tcp_conn_id = id;
     s->listening = true;
@@ -138,14 +139,14 @@ int nm_accept(int sockfd, struct nm_sockaddr_in *addr)
     struct nm_socket_entry *s = get_sock(sockfd);
     if (!s || !s->listening) {
         sock_unlock();
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
     uint16_t port = s->local_port;
     sock_unlock();
 
     int conn = tcp_accept(port);
     if (conn < 0) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     sock_lock();
@@ -153,7 +154,7 @@ int nm_accept(int sockfd, struct nm_sockaddr_in *addr)
     if (child < 0) {
         sock_unlock();
         (void)tcp_close(conn);
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
     socks[child].local_port = port;
     socks[child].tcp_conn_id = conn;
@@ -173,7 +174,7 @@ int nm_connect(int sockfd, const struct nm_sockaddr_in *addr)
     struct nm_socket_entry *s = get_sock(sockfd);
     if (!s || !addr || s->type != NM_SOCK_STREAM) {
         sock_unlock();
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     uint16_t local_port = s->local_port;
@@ -197,7 +198,7 @@ int nm_connect(int sockfd, const struct nm_sockaddr_in *addr)
             }
             sock_unlock();
         }
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     sock_lock();
@@ -205,7 +206,7 @@ int nm_connect(int sockfd, const struct nm_sockaddr_in *addr)
     if (!s) {
         sock_unlock();
         (void)tcp_close(conn);
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
     s->peer_ip = dst_ip;
     s->peer_port = dst_port;
@@ -220,13 +221,13 @@ int64_t nm_sendto(int sockfd, const void *buf, uint64_t len, const struct nm_soc
     struct nm_socket_entry *s = get_sock(sockfd);
     if (!s || !buf || len == 0) {
         sock_unlock();
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     if (s->type == NM_SOCK_DGRAM) {
         if (!addr) {
             sock_unlock();
-            return -1;
+            return NM_ERR(NM_EFAIL);
         }
         if (s->local_port == 0) {
             s->local_port = eph_port++;
@@ -236,7 +237,7 @@ int64_t nm_sendto(int sockfd, const void *buf, uint64_t len, const struct nm_soc
         uint16_t dst_port = addr->sin_port;
         sock_unlock();
         if (udp_bind(src_port) != 0) {
-            return -1;
+            return NM_ERR(NM_EFAIL);
         }
         return udp_sendto(src_port, dst_ip, dst_port, buf, (uint16_t)len);
     }
@@ -244,7 +245,7 @@ int64_t nm_sendto(int sockfd, const void *buf, uint64_t len, const struct nm_soc
     int conn_id = s->tcp_conn_id;
     sock_unlock();
     if (conn_id <= 0) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
     return tcp_send(conn_id, buf, (uint16_t)len);
 }
@@ -255,7 +256,7 @@ int64_t nm_recvfrom(int sockfd, void *buf, uint64_t len, struct nm_sockaddr_in *
     struct nm_socket_entry *s = get_sock(sockfd);
     if (!s || !buf || len == 0) {
         sock_unlock();
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     if (s->type == NM_SOCK_DGRAM) {
@@ -275,7 +276,7 @@ int64_t nm_recvfrom(int sockfd, void *buf, uint64_t len, struct nm_sockaddr_in *
     int conn_id = s->tcp_conn_id;
     sock_unlock();
     if (conn_id <= 0) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
     return tcp_recv(conn_id, buf, (uint16_t)len);
 }
@@ -286,7 +287,7 @@ int nm_close_socket(int sockfd)
     struct nm_socket_entry *s = get_sock(sockfd);
     if (!s) {
         sock_unlock();
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     int type = s->type;

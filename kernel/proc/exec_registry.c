@@ -2,6 +2,8 @@
 
 #include <stddef.h>
 
+#include "nm/errno.h"
+
 struct nm_builtin_prog {
     const char *path;
     uint64_t entry;
@@ -33,7 +35,7 @@ static int str_eq(const char *a, const char *b)
 int nm_exec_resolve_entry(const char *path, uint64_t *entry_out)
 {
     if (path == 0 || entry_out == 0) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     for (size_t i = 0; builtin_programs[i].path != 0; i++) {
@@ -42,5 +44,5 @@ int nm_exec_resolve_entry(const char *path, uint64_t *entry_out)
             return 0;
         }
     }
-    return -1;
+    return NM_ERR(NM_EFAIL);
 }

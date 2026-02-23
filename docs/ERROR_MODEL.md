@@ -13,6 +13,8 @@
 - syscall 分发层已统一未实现 syscall 返回 `NM_ERR(NM_ENOSYS)`。
 - 历史路径中仍存在 `-1` 的通用失败返回；该值在当前阶段等价于 `NM_ERR(NM_EFAIL)`。
 - 为保持兼容，现有测试依赖的 `-1` 语义暂不改变。
+- 阶段 2（进行中）：`kernel/fs/vfs.c` 与 `kernel/net/{socket,tcp,udp}.c` 的公共错误返回已迁移到 `NM_ERR(...)` 常量写法（数值行为保持兼容）。
+- 阶段 2（进行中）：`kernel/proc/{fd,task,exec_registry}.c` 的导出接口错误返回已迁移到 `NM_ERR(...)` 常量写法。
 
 ## 3. 子系统约束
 

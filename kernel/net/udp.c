@@ -3,6 +3,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "nm/errno.h"
+
 void net_stats_note_udp_rx(void);
 void net_stats_note_udp_tx(void);
 
@@ -52,7 +54,7 @@ static struct udp_port *find_port(uint16_t port)
 int udp_bind(uint16_t port)
 {
     if (port == 0) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     udp_lock();
@@ -72,7 +74,7 @@ int udp_bind(uint16_t port)
         }
     }
     udp_unlock();
-    return -1;
+    return NM_ERR(NM_EFAIL);
 }
 
 int udp_unbind(uint16_t port)
@@ -81,7 +83,7 @@ int udp_unbind(uint16_t port)
     struct udp_port *p = find_port(port);
     if (!p) {
         udp_unlock();
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
     p->used = false;
     udp_unlock();
@@ -95,7 +97,7 @@ static int udp_deliver(uint16_t dst_port, uint32_t src_ip, uint16_t src_port, co
     struct udp_port *p = find_port(dst_port);
     if (!p) {
         udp_unlock();
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     for (int i = 0; i < UDP_QUEUE_CAP; i++) {
@@ -113,13 +115,13 @@ static int udp_deliver(uint16_t dst_port, uint32_t src_ip, uint16_t src_port, co
         }
     }
     udp_unlock();
-    return -1;
+    return NM_ERR(NM_EFAIL);
 }
 
 int udp_sendto(uint16_t src_port, uint32_t dst_ip, uint16_t dst_port, const void *payload, uint16_t len)
 {
     if (payload == 0 || len == 0) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
     net_stats_note_udp_tx();
     return udp_deliver(dst_port, dst_ip, src_port, payload, len);
@@ -131,7 +133,7 @@ int udp_recv(uint16_t port, void *payload, uint16_t cap, uint32_t *src_ip, uint1
     struct udp_port *p = find_port(port);
     if (!p || payload == 0) {
         udp_unlock();
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     for (int i = 0; i < UDP_QUEUE_CAP; i++) {

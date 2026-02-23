@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "nm/errno.h"
 #include "nm/mm.h"
 
 #define NM_MAX_TASKS 128
@@ -308,7 +309,7 @@ int proc_exec_current(const char *name, uint64_t entry, const char *const *argv,
     proc_lock();
     if (current_task == 0 || name == 0) {
         proc_unlock();
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     current_task->entry_name = name;
@@ -342,7 +343,7 @@ int32_t proc_waitpid(int32_t pid, int32_t *status)
     proc_lock();
     if (current_task == 0) {
         proc_unlock();
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     struct nm_task *match = 0;
@@ -363,7 +364,7 @@ int32_t proc_waitpid(int32_t pid, int32_t *status)
 
     if (match == 0) {
         proc_unlock();
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     if (status != 0) {

@@ -3,6 +3,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "nm/errno.h"
+
 void net_stats_note_tcp_conn(void);
 
 #define TCP_CONN_MAX 64
@@ -86,7 +88,7 @@ int tcp_listen(uint16_t port)
     struct tcp_conn *c = alloc_conn();
     if (!c) {
         tcp_unlock();
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
     c->state = TCP_LISTEN;
     c->local_ip = 0;
@@ -102,7 +104,7 @@ int tcp_connect(uint32_t dst_ip, uint16_t dst_port, uint16_t src_port)
     const struct tcp_conn *listener = find_listener(dst_port);
     if (!listener) {
         tcp_unlock();
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     struct tcp_conn *cli = alloc_conn();
@@ -121,7 +123,7 @@ int tcp_connect(uint32_t dst_ip, uint16_t dst_port, uint16_t src_port)
             srv->rx_len = 0;
         }
         tcp_unlock();
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     cli->state = TCP_ESTABLISHED;
@@ -157,7 +159,7 @@ int tcp_accept(uint16_t listen_port)
         }
     }
     tcp_unlock();
-    return -1;
+    return NM_ERR(NM_EFAIL);
 }
 
 int tcp_send(int conn_id, const void *payload, uint16_t len)
@@ -166,13 +168,13 @@ int tcp_send(int conn_id, const void *payload, uint16_t len)
     const struct tcp_conn *c = find_by_id(conn_id);
     if (!c || c->state != TCP_ESTABLISHED || payload == 0 || len == 0) {
         tcp_unlock();
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     struct tcp_conn *peer = find_by_id(c->peer_id);
     if (!peer || peer->state != TCP_ESTABLISHED) {
         tcp_unlock();
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     uint16_t n = len > TCP_BUF_MAX ? TCP_BUF_MAX : len;
@@ -190,7 +192,7 @@ int tcp_recv(int conn_id, void *payload, uint16_t cap)
     struct tcp_conn *c = find_by_id(conn_id);
     if (!c || c->state != TCP_ESTABLISHED || payload == 0) {
         tcp_unlock();
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
     if (c->rx_len == 0) {
         tcp_unlock();
@@ -212,7 +214,7 @@ int tcp_close(int conn_id)
     struct tcp_conn *c = find_by_id(conn_id);
     if (!c) {
         tcp_unlock();
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
     c->used = false;
     tcp_unlock();
