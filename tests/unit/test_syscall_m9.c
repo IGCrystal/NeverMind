@@ -102,11 +102,41 @@ static void test_fork_exec(void)
     assert(syscall_dispatch(NM_SYS_EXEC, (uint64_t)(uintptr_t)"/not-found", 0, 0, 0, 0, 0) == -1);
 }
 
+static void test_cloexec_on_exec(void)
+{
+    proc_init();
+    syscall_init();
+    fs_init();
+    assert(fs_mount_root(tmpfs_filesystem()) == 0);
+
+    int prog = fs_open("/sh", NM_O_CREAT | NM_O_RDWR, 0644);
+    assert(prog >= 0);
+    assert(fs_close(prog) == 0);
+
+    int filefd = fs_open("/tmp.log", NM_O_CREAT | NM_O_RDWR, 0644);
+    assert(filefd >= 0);
+
+    struct nm_task *cur = task_current();
+    assert(cur != 0);
+    cur->fd_table[3] = filefd;
+
+    assert(syscall_dispatch(NM_SYS_FD_CLOEXEC, 3, 2, 0, 0, 0, 0) == 0);
+    assert(syscall_dispatch(NM_SYS_FD_CLOEXEC, 3, 1, 0, 0, 0, 0) == 0);
+    assert(syscall_dispatch(NM_SYS_FD_CLOEXEC, 3, 2, 0, 0, 0, 0) == 1);
+
+    const char *argv[] = {"/sh", 0};
+    assert(syscall_dispatch(NM_SYS_EXEC, (uint64_t)(uintptr_t)"/sh", (uint64_t)(uintptr_t)argv,
+                            0, 0, 0, 0) == 0);
+
+    assert(cur->fd_table[3] == -1);
+}
+
 int main(void)
 {
     test_pipe_and_dup2();
     test_exit_waitpid();
     test_fork_exec();
+    test_cloexec_on_exec();
     puts("test_syscall_m9: PASS");
     return 0;
 }

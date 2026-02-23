@@ -12,6 +12,10 @@
 - M6: ARP/IPv4/ICMP/UDP/TCP + socket API + ping/http sources
 - M7: shell (`ls/cat/echo`) + redirection/pipe + integration tests
 - M8: kernel log ring buffer + dmesg tool + release/audit/perf docs
+- M9: process/syscall evolution (`pipe/dup2/read/close`, `exit/waitpid`, minimal `fork/exec`)
+- M9: path-based `exec` with builtin registry extraction and minimal `argv/envp` semantics
+- M9: fd subsystem modularization (`kernel/proc/fd.c`) with shared fd-object references
+- M9: close-on-exec support (`NM_SYS_FD_CLOEXEC`) and exec-time fd close policy
 
 ## SemVer policy
 

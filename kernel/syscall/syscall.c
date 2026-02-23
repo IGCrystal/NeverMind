@@ -5,106 +5,11 @@
 
 #include "nm/console.h"
 #include "nm/exec.h"
+#include "nm/fd.h"
 #include "nm/fs.h"
 #include "nm/proc.h"
 
 static nm_syscall_handler_t syscall_table[NM_SYSCALL_MAX];
-
-#define NM_PIPE_MAX 16
-#define NM_PIPE_BUF 512
-
-struct nm_pipe {
-    int used;
-    uint8_t buf[NM_PIPE_BUF];
-    uint64_t read_pos;
-    uint64_t write_pos;
-    uint32_t readers;
-    uint32_t writers;
-};
-
-static struct nm_pipe pipe_table[NM_PIPE_MAX];
-
-static int32_t encode_pipe_fd(int pipe_id, int is_write_end)
-{
-    return -(1000 + (pipe_id * 2) + (is_write_end ? 1 : 0));
-}
-
-static int decode_pipe_fd(int32_t value, int *pipe_id, int *is_write_end)
-{
-    if (value > -1000) {
-        return 0;
-    }
-
-    int raw = -value - 1000;
-    int id = raw / 2;
-    int w = raw % 2;
-    if (id < 0 || id >= NM_PIPE_MAX) {
-        return 0;
-    }
-    if (pipe_id) {
-        *pipe_id = id;
-    }
-    if (is_write_end) {
-        *is_write_end = w;
-    }
-    return 1;
-}
-
-static int alloc_task_fd(struct nm_task *task)
-{
-    if (task == 0) {
-        return -1;
-    }
-    for (int i = 0; i < NM_MAX_FDS; i++) {
-        if (task->fd_table[i] == -1) {
-            return i;
-        }
-    }
-    return -1;
-}
-
-static int close_task_fd_value(int32_t value)
-{
-    int pipe_id = 0;
-    int is_write_end = 0;
-    if (decode_pipe_fd(value, &pipe_id, &is_write_end)) {
-        struct nm_pipe *pipe = &pipe_table[pipe_id];
-        if (!pipe->used) {
-            return 0;
-        }
-        if (is_write_end) {
-            if (pipe->writers > 0) {
-                pipe->writers--;
-            }
-        } else {
-            if (pipe->readers > 0) {
-                pipe->readers--;
-            }
-        }
-        if (pipe->readers == 0 && pipe->writers == 0) {
-            pipe->used = 0;
-            pipe->read_pos = 0;
-            pipe->write_pos = 0;
-        }
-        return 0;
-    }
-
-    if (value >= 0) {
-        return fs_close(value);
-    }
-    return -1;
-}
-
-static int32_t get_mapped_fd(struct nm_task *task, int32_t fd)
-{
-    if (task == 0) {
-        return -1;
-    }
-    if (fd < 0 || fd >= NM_MAX_FDS) {
-        return -1;
-    }
-    return task->fd_table[fd];
-}
 
 static int64_t sys_getpid(uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
                           uint64_t a6)
@@ -139,31 +44,9 @@ static int64_t sys_write(uint64_t fd, uint64_t buf, uint64_t len, uint64_t a4, u
         return -1;
     }
 
-    const char *ptr = (const char *)(uintptr_t)buf;
-
-    int32_t mapped = get_mapped_fd(cur, (int32_t)fd);
-    int pipe_id = 0;
-    int is_write_end = 0;
-    if (decode_pipe_fd(mapped, &pipe_id, &is_write_end)) {
-        if (!is_write_end) {
-            return -1;
-        }
-        struct nm_pipe *pipe = &pipe_table[pipe_id];
-        if (!pipe->used) {
-            return -1;
-        }
-
-        uint64_t written = 0;
-        while (written < len && (pipe->write_pos - pipe->read_pos) < NM_PIPE_BUF) {
-            pipe->buf[pipe->write_pos % NM_PIPE_BUF] = (uint8_t)ptr[written];
-            pipe->write_pos++;
-            written++;
-        }
-        return (int64_t)written;
-    }
-
-    if (mapped >= 0) {
-        return fs_write(mapped, ptr, len);
+    int64_t n = nm_fd_write(cur, (int32_t)fd, (const void *)(uintptr_t)buf, len);
+    if (n >= 0) {
+        return n;
     }
 
     if (fd != 1) {
@@ -173,6 +56,7 @@ static int64_t sys_write(uint64_t fd, uint64_t buf, uint64_t len, uint64_t a4, u
 #ifdef NEVERMIND_HOST_TEST
     return (int64_t)len;
 #else
+    const char *ptr = (const char *)(uintptr_t)buf;
     for (uint64_t i = 0; i < len; i++) {
         console_putc(ptr[i]);
     }
@@ -196,33 +80,7 @@ static int64_t sys_read(uint64_t fd, uint64_t buf, uint64_t len, uint64_t a4, ui
         return -1;
     }
 
-    int32_t mapped = get_mapped_fd(cur, (int32_t)fd);
-    int pipe_id = 0;
-    int is_write_end = 0;
-    if (decode_pipe_fd(mapped, &pipe_id, &is_write_end)) {
-        if (is_write_end) {
-            return -1;
-        }
-        struct nm_pipe *pipe = &pipe_table[pipe_id];
-        if (!pipe->used) {
-            return -1;
-        }
-
-        uint8_t *out = (uint8_t *)(uintptr_t)buf;
-        uint64_t count = 0;
-        while (count < len && pipe->read_pos < pipe->write_pos) {
-            out[count] = pipe->buf[pipe->read_pos % NM_PIPE_BUF];
-            pipe->read_pos++;
-            count++;
-        }
-        return (int64_t)count;
-    }
-
-    if (mapped >= 0) {
-        return fs_read(mapped, (void *)(uintptr_t)buf, len);
-    }
-
-    return -1;
+    return nm_fd_read(cur, (int32_t)fd, (void *)(uintptr_t)buf, len);
 }
 
 static int64_t sys_close(uint64_t fd, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
@@ -239,16 +97,7 @@ static int64_t sys_close(uint64_t fd, uint64_t a2, uint64_t a3, uint64_t a4, uin
         return -1;
     }
 
-    int32_t value = cur->fd_table[fd];
-    if (value == -1) {
-        return -1;
-    }
-
-    if (close_task_fd_value(value) != 0) {
-        return -1;
-    }
-    cur->fd_table[fd] = -1;
-    return 0;
+    return nm_fd_close(cur, (int32_t)fd);
 }
 
 static int64_t sys_exit(uint64_t code, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
@@ -299,37 +148,11 @@ static int64_t sys_pipe(uint64_t fds_ptr, uint64_t a2, uint64_t a3, uint64_t a4,
         return -1;
     }
 
-    int pipe_id = -1;
-    for (int i = 0; i < NM_PIPE_MAX; i++) {
-        if (!pipe_table[i].used) {
-            pipe_id = i;
-            break;
-        }
-    }
-    if (pipe_id < 0) {
+    int32_t rd = -1;
+    int32_t wr = -1;
+    if (nm_fd_pipe(cur, &rd, &wr) != 0) {
         return -1;
     }
-
-    int rd = alloc_task_fd(cur);
-    if (rd < 0) {
-        return -1;
-    }
-    cur->fd_table[rd] = -2;
-
-    int wr = alloc_task_fd(cur);
-    if (wr < 0) {
-        cur->fd_table[rd] = -1;
-        return -1;
-    }
-
-    pipe_table[pipe_id].used = 1;
-    pipe_table[pipe_id].read_pos = 0;
-    pipe_table[pipe_id].write_pos = 0;
-    pipe_table[pipe_id].readers = 1;
-    pipe_table[pipe_id].writers = 1;
-
-    cur->fd_table[rd] = encode_pipe_fd(pipe_id, 0);
-    cur->fd_table[wr] = encode_pipe_fd(pipe_id, 1);
 
     int32_t *fds = (int32_t *)(uintptr_t)fds_ptr;
     fds[0] = rd;
@@ -350,32 +173,31 @@ static int64_t sys_dup2(uint64_t oldfd, uint64_t newfd, uint64_t a3, uint64_t a4
         return -1;
     }
 
-    int32_t oldv = cur->fd_table[oldfd];
-    if (oldv == -1) {
+    return nm_fd_dup2(cur, (int32_t)oldfd, (int32_t)newfd);
+}
+
+static int64_t sys_fd_cloexec(uint64_t fd, uint64_t enabled, uint64_t a3, uint64_t a4, uint64_t a5,
+                              uint64_t a6)
+{
+    (void)a3;
+    (void)a4;
+    (void)a5;
+    (void)a6;
+
+    struct nm_task *cur = task_current();
+    if (cur == 0 || fd >= (uint64_t)NM_MAX_FDS) {
         return -1;
     }
 
-    if (oldfd == newfd) {
-        return (int64_t)newfd;
+    if (enabled == 0 || enabled == 1) {
+        return nm_fd_set_cloexec(cur, (int32_t)fd, (int)enabled);
     }
 
-    int32_t newv = cur->fd_table[newfd];
-    if (newv != -1 && close_task_fd_value(newv) != 0) {
-        return -1;
+    if (enabled == 2) {
+        return nm_fd_get_cloexec(cur, (int32_t)fd);
     }
 
-    cur->fd_table[newfd] = oldv;
-
-    int pipe_id = 0;
-    int is_write_end = 0;
-    if (decode_pipe_fd(oldv, &pipe_id, &is_write_end)) {
-        if (is_write_end) {
-            pipe_table[pipe_id].writers++;
-        } else {
-            pipe_table[pipe_id].readers++;
-        }
-    }
-    return (int64_t)newfd;
+    return -1;
 }
 
 static int64_t sys_fork(uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
@@ -398,18 +220,7 @@ static int64_t sys_fork(uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint
         return -1;
     }
 
-    for (int i = 0; i < NM_MAX_FDS; i++) {
-        int32_t v = child->fd_table[i];
-        int pipe_id = 0;
-        int is_write_end = 0;
-        if (decode_pipe_fd(v, &pipe_id, &is_write_end)) {
-            if (is_write_end) {
-                pipe_table[pipe_id].writers++;
-            } else {
-                pipe_table[pipe_id].readers++;
-            }
-        }
-    }
+    (void)nm_fd_on_fork_child(child);
 
     parent->regs.rax = (uint64_t)child->pid;
     return child->pid;
@@ -451,6 +262,7 @@ static int64_t sys_exec(uint64_t name_ptr, uint64_t argv_ptr, uint64_t envp_ptr,
         return -1;
     }
 
+    nm_fd_close_on_exec(task_current());
     return proc_exec_current(name, final_entry, argv, envp);
 }
 
@@ -460,13 +272,7 @@ void syscall_init(void)
         syscall_table[i] = 0;
     }
 
-    for (size_t i = 0; i < NM_PIPE_MAX; i++) {
-        pipe_table[i].used = 0;
-        pipe_table[i].read_pos = 0;
-        pipe_table[i].write_pos = 0;
-        pipe_table[i].readers = 0;
-        pipe_table[i].writers = 0;
-    }
+    nm_fd_init();
 
     (void)syscall_register(NM_SYS_GETPID, sys_getpid);
     (void)syscall_register(NM_SYS_WRITE, sys_write);
@@ -478,6 +284,7 @@ void syscall_init(void)
     (void)syscall_register(NM_SYS_DUP2, sys_dup2);
     (void)syscall_register(NM_SYS_FORK, sys_fork);
     (void)syscall_register(NM_SYS_EXEC, sys_exec);
+    (void)syscall_register(NM_SYS_FD_CLOEXEC, sys_fd_cloexec);
 }
 
 int syscall_register(uint64_t nr, nm_syscall_handler_t fn)

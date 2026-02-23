@@ -16,6 +16,7 @@ enum nm_syscall_nr {
     NM_SYS_DUP2 = 7,
     NM_SYS_FORK = 8,
     NM_SYS_EXEC = 9,
+    NM_SYS_FD_CLOEXEC = 10,
 };
 
 typedef int64_t (*nm_syscall_handler_t)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t);

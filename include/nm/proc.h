@@ -56,6 +56,7 @@ struct nm_task {
     struct nm_regs regs;
     uint64_t cr3;
     int32_t fd_table[NM_MAX_FDS];
+    uint32_t fd_cloexec_mask;
     uint64_t signal_mask;
     int32_t exit_code;
     uint32_t argc;

@@ -71,6 +71,7 @@ void proc_init(void)
     for (size_t i = 0; i < NM_MAX_TASKS; i++) {
         task_table[i].state = NM_TASK_UNUSED;
         task_table[i].pid = 0;
+        task_table[i].fd_cloexec_mask = 0;
         task_table[i].exit_code = 0;
         task_table[i].argc = 0;
         task_table[i].envc = 0;
@@ -94,6 +95,7 @@ void proc_init(void)
     bootstrap->sched.priority = 20;
     bootstrap->sched.timeslice_ticks = 4;
     bootstrap->sched.vruntime = 0;
+    bootstrap->fd_cloexec_mask = 0;
     bootstrap->exit_code = 0;
     bootstrap->argc = 0;
     bootstrap->envc = 0;
@@ -126,6 +128,7 @@ struct nm_task *task_create_kernel_thread(const char *name, void (*entry)(void *
     task->sched.priority = 20;
     task->sched.timeslice_ticks = 4;
     task->sched.vruntime = 0;
+    task->fd_cloexec_mask = 0;
     task->exit_code = 0;
     task->argc = 0;
     task->envc = 0;
@@ -276,6 +279,7 @@ int32_t proc_waitpid(int32_t pid, int32_t *status)
     match->state = NM_TASK_UNUSED;
     match->pid = 0;
     match->ppid = 0;
+    match->fd_cloexec_mask = 0;
     match->exit_code = 0;
     if (task_used > 0) {
         task_used--;
