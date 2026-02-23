@@ -26,6 +26,9 @@ jobs:
       - name: Build M1 image
         run: make all
 
+      - name: Run unit tests
+        run: make test
+
       - name: Static analysis (M1 scope)
         run: |
           cppcheck --enable=warning,style,performance --error-exitcode=1 \

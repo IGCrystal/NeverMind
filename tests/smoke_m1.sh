@@ -19,7 +19,7 @@ timeout 20s qemu-system-x86_64 \
   -no-reboot \
   -no-shutdown || true
 
-grep -q "NeverMind: M1 boot ok" "$BIOS_LOG"
+grep -q "NeverMind: M2 mm boot ok" "$BIOS_LOG"
 
 if [[ -f "${OVMF_CODE:-/usr/share/OVMF/OVMF_CODE.fd}" ]]; then
   timeout 20s qemu-system-x86_64 \
@@ -33,7 +33,7 @@ if [[ -f "${OVMF_CODE:-/usr/share/OVMF/OVMF_CODE.fd}" ]]; then
     -monitor none \
     -no-reboot \
     -no-shutdown || true
-  grep -q "NeverMind: M1 boot ok" "$UEFI_LOG"
+  grep -q "NeverMind: M2 mm boot ok" "$UEFI_LOG"
 fi
 
 echo "M1 smoke test passed"

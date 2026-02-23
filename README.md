@@ -24,6 +24,12 @@ GPLv2-compatible，见 `LICENSE`。
 - `build/kernel.elf`
 - `build/nevermind-m1.iso`
 
+## 单元测试（M2）
+
+```bash
+make test
+```
+
 ## 运行（BIOS）
 
 ```bash
@@ -55,16 +61,17 @@ make smoke
 [00.000100] gdt ready
 [00.000200] idt ready
 [00.000300] tss ready
+[00.000400] mm ready: free_pages=... used_pages=...
 NeverMind kernel (M1)
 arch: x86_64
 boot: BIOS+UEFI via GRUB multiboot2
-[00.001000] NeverMind: M1 boot ok
+[00.001000] NeverMind: M2 mm boot ok
 ```
 
 ## 里程碑
 
 - M1 (boot): 启动链路 + long mode + early init + CI smoke
-- M2 (mm): 物理/虚拟内存与分配器
+- M2 (mm): 物理页分配（bitmap）+ 基础 VMM（4KB/2MB map）+ `kmalloc/kfree` + 单测
 - M3 (proc): 任务模型、上下文切换、调度与 syscall
 - M4 (fs): VFS + tmpfs + ext2
 - M5 (drivers): timer/keyboard/pci/网卡基础
