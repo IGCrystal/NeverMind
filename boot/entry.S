@@ -21,6 +21,14 @@ multiboot2_header:
     .long multiboot2_header_end - multiboot2_header
     .long -(MB2_MAGIC + MB2_ARCH_I386 + (multiboot2_header_end - multiboot2_header))
 
+    // Information request tag: ask GRUB for the memory map (type 6).
+    // size includes padding to keep 8-byte alignment.
+    .short 1
+    .short 0
+    .long 16
+    .long 6
+    .long 0
+
     .short 0
     .short 0
     .long 8
@@ -66,7 +74,12 @@ _start:
     mov $boot_stack_top, %esp
     mov %ebx, %edi
 
+    // setup_page_tables clobbers %edi; preserve the mb2 info pointer.
+    pushl %edi
+
     call setup_page_tables
+
+    popl %edi
 
     mov $boot_pml4, %eax
     mov %eax, %cr3
