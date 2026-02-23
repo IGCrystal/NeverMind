@@ -60,6 +60,25 @@ static void kernel_banner(void)
     console_write("boot: BIOS+UEFI via GRUB multiboot2\n");
 }
 
+static void cpu_enable_sse(void)
+{
+    uint64_t cr0;
+    uint64_t cr4;
+
+    __asm__ volatile("mov %%cr0, %0" : "=r"(cr0));
+    cr0 &= ~(1ULL << 2);  // CR0.EM = 0 (enable FPU)
+    cr0 &= ~(1ULL << 3);  // CR0.TS = 0 (no task switch trapping)
+    cr0 |= (1ULL << 1);   // CR0.MP = 1
+    __asm__ volatile("mov %0, %%cr0" : : "r"(cr0) : "memory");
+
+    __asm__ volatile("mov %%cr4, %0" : "=r"(cr4));
+    cr4 |= (1ULL << 9);   // CR4.OSFXSR = 1 (enable FXSAVE/FXRSTOR)
+    cr4 |= (1ULL << 10);  // CR4.OSXMMEXCPT = 1
+    __asm__ volatile("mov %0, %%cr4" : : "r"(cr4) : "memory");
+
+    __asm__ volatile("fninit");
+}
+
 void kmain(uint64_t mb2_info)
 {
     klog_init();
@@ -68,6 +87,8 @@ void kmain(uint64_t mb2_info)
 
     gdt_init();
     console_write("[00.000100] gdt ready\n");
+
+    cpu_enable_sse();
 
     idt_init();
     console_write("[00.000200] idt ready\n");
