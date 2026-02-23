@@ -35,6 +35,11 @@ void *pmm_host_ptr_from_key(uint64_t key);
 #endif
 
 void vmm_init(void);
+uint64_t *vmm_kernel_root(void);
+bool vmm_map_page_in(uint64_t *pml4, uint64_t virt_addr, uint64_t phys_addr, uint64_t flags);
+bool vmm_unmap_page_in(uint64_t *pml4, uint64_t virt_addr);
+bool vmm_map_2m_in(uint64_t *pml4, uint64_t virt_addr, uint64_t phys_addr, uint64_t flags);
+
 bool vmm_map_page(uint64_t virt_addr, uint64_t phys_addr, uint64_t flags);
 bool vmm_unmap_page(uint64_t virt_addr);
 bool vmm_map_2m(uint64_t virt_addr, uint64_t phys_addr, uint64_t flags);

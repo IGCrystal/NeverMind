@@ -35,6 +35,22 @@ has_smoke_marker() {
   grep -Eq "$SMOKE_MARKER" "$log_file"
 }
 
+has_exc_anywhere() {
+  local log_file="$1"
+  grep -Eq '\[EXC\]' "$log_file"
+}
+
+has_exc_after_marker() {
+  local log_file="$1"
+  local marker_line
+  marker_line="$(grep -En "$SMOKE_MARKER" "$log_file" | head -n 1 | cut -d: -f1 || true)"
+  if [[ -z "$marker_line" ]]; then
+    return 1
+  fi
+
+  tail -n +"$marker_line" "$log_file" | grep -Eq '\[EXC\]'
+}
+
 run_smoke_qemu "$BIOS_LOG" "$SMOKE_TIMEOUT" \
   -machine q35,accel=tcg \
   -cpu qemu64,-vmx \
@@ -42,8 +58,12 @@ run_smoke_qemu "$BIOS_LOG" "$SMOKE_TIMEOUT" \
   -smp 1 \
   -cdrom "$ISO"
 
-if ! has_smoke_marker "$BIOS_LOG"; then
-  echo "BIOS smoke marker not found in $BIOS_LOG, retrying with longer timeout (${SMOKE_RETRY_TIMEOUT})"
+if ! has_smoke_marker "$BIOS_LOG" || has_exc_after_marker "$BIOS_LOG"; then
+  if ! has_smoke_marker "$BIOS_LOG"; then
+    echo "BIOS smoke marker not found in $BIOS_LOG, retrying with longer timeout (${SMOKE_RETRY_TIMEOUT})"
+  else
+    echo "BIOS smoke found marker but also found exception after marker; retrying with longer timeout (${SMOKE_RETRY_TIMEOUT})"
+  fi
   rm -f "$BIOS_DEBUG_LOG"
   run_smoke_qemu "$BIOS_LOG" "$SMOKE_RETRY_TIMEOUT" \
     -machine q35,accel=tcg \
@@ -55,8 +75,12 @@ if ! has_smoke_marker "$BIOS_LOG"; then
     -cdrom "$ISO"
 fi
 
-if ! has_smoke_marker "$BIOS_LOG"; then
-  echo "BIOS smoke marker still not found in $BIOS_LOG"
+if ! has_smoke_marker "$BIOS_LOG" || has_exc_after_marker "$BIOS_LOG"; then
+  if ! has_smoke_marker "$BIOS_LOG"; then
+    echo "BIOS smoke marker still not found in $BIOS_LOG"
+  else
+    echo "BIOS smoke marker found, but exception was detected after marker in $BIOS_LOG"
+  fi
   if [[ -f build/kernel.map ]]; then
     cp -f build/kernel.map "$KERNEL_MAP_LOG" || true
   fi
@@ -125,6 +149,11 @@ if [[ -f "${OVMF_CODE:-/usr/share/OVMF/OVMF_CODE.fd}" ]]; then
       tail -n 80 "$UEFI_LOG" || true
       echo "-------------------------"
     fi
+  elif has_exc_after_marker "$UEFI_LOG" || has_exc_anywhere "$UEFI_LOG"; then
+    echo "UEFI smoke found exception output; continuing with BIOS smoke result"
+    echo "---- UEFI LOG (tail) ----"
+    tail -n 80 "$UEFI_LOG" || true
+    echo "-------------------------"
   fi
 fi
 
