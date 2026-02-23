@@ -89,10 +89,15 @@ static void test_fork_exec(void)
     assert(child->regs.rax == 0);
 
     proc_set_current(child);
-    assert(syscall_dispatch(NM_SYS_EXEC, (uint64_t)(uintptr_t)"/sh", 0, 0, 0, 0, 0) == 0);
+    const char *argv[] = {"/sh", "-c", "echo", 0};
+    const char *envp[] = {"TERM=vt100", 0};
+    assert(syscall_dispatch(NM_SYS_EXEC, (uint64_t)(uintptr_t)"/sh", (uint64_t)(uintptr_t)argv,
+                            (uint64_t)(uintptr_t)envp, 0, 0, 0) == 0);
     assert(child->entry_name != 0);
     assert(child->entry_name[0] == '/');
     assert(child->regs.rip == 0x1100);
+    assert(child->argc == 3);
+    assert(child->envc == 1);
 
     assert(syscall_dispatch(NM_SYS_EXEC, (uint64_t)(uintptr_t)"/not-found", 0, 0, 0, 0, 0) == -1);
 }

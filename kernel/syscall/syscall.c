@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #include "nm/console.h"
+#include "nm/exec.h"
 #include "nm/fs.h"
 #include "nm/proc.h"
 
@@ -22,43 +23,6 @@ struct nm_pipe {
 };
 
 static struct nm_pipe pipe_table[NM_PIPE_MAX];
-
-struct nm_builtin_prog {
-    const char *path;
-    uint64_t entry;
-};
-
-static const struct nm_builtin_prog builtin_programs[] = {
-    {"/init", 0x1000},
-    {"/sh", 0x1100},
-    {"/ping", 0x1200},
-    {0, 0},
-};
-
-static int str_eq(const char *a, const char *b)
-{
-    size_t i = 0;
-    if (a == 0 || b == 0) {
-        return 0;
-    }
-    while (a[i] != '\0' && b[i] != '\0') {
-        if (a[i] != b[i]) {
-            return 0;
-        }
-        i++;
-    }
-    return a[i] == b[i];
-}
-
-static uint64_t resolve_builtin_entry(const char *path)
-{
-    for (size_t i = 0; builtin_programs[i].path != 0; i++) {
-        if (str_eq(path, builtin_programs[i].path)) {
-            return builtin_programs[i].entry;
-        }
-    }
-    return 0;
-}
 
 static int32_t encode_pipe_fd(int pipe_id, int is_write_end)
 {
@@ -451,11 +415,10 @@ static int64_t sys_fork(uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint
     return child->pid;
 }
 
-static int64_t sys_exec(uint64_t name_ptr, uint64_t entry, uint64_t a3, uint64_t a4, uint64_t a5,
+static int64_t sys_exec(uint64_t name_ptr, uint64_t argv_ptr, uint64_t envp_ptr, uint64_t a4,
+                        uint64_t a5,
                         uint64_t a6)
 {
-    (void)a3;
-    (void)a4;
     (void)a5;
     (void)a6;
 
@@ -469,15 +432,26 @@ static int64_t sys_exec(uint64_t name_ptr, uint64_t entry, uint64_t a3, uint64_t
         return -1;
     }
 
-    uint64_t final_entry = entry;
-    if (final_entry == 0) {
-        final_entry = resolve_builtin_entry(name);
+    const char *const *argv = (const char *const *)(uintptr_t)argv_ptr;
+    const char *const *envp = (const char *const *)(uintptr_t)envp_ptr;
+
+    uint64_t final_entry = 0;
+    if (nm_exec_resolve_entry(name, &final_entry) != 0) {
+        final_entry = 0;
     }
+
+    if (argv_ptr != 0 && envp_ptr == 0 && a4 == 0 && argv_ptr < 0x100000ULL) {
+        final_entry = argv_ptr;
+        argv = 0;
+    } else if (a4 != 0) {
+        final_entry = a4;
+    }
+
     if (final_entry == 0) {
         return -1;
     }
 
-    return proc_exec_current(name, final_entry);
+    return proc_exec_current(name, final_entry, argv, envp);
 }
 
 void syscall_init(void)

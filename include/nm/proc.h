@@ -58,6 +58,8 @@ struct nm_task {
     int32_t fd_table[NM_MAX_FDS];
     uint64_t signal_mask;
     int32_t exit_code;
+    uint32_t argc;
+    uint32_t envc;
     struct nm_sched_param sched;
     uint64_t *kernel_stack_top;
     const char *entry_name;
@@ -72,7 +74,8 @@ struct nm_task *task_by_index(size_t index);
 size_t task_count(void);
 void proc_set_current(struct nm_task *task);
 struct nm_task *proc_fork_current(void);
-int proc_exec_current(const char *name, uint64_t entry);
+int proc_exec_current(const char *name, uint64_t entry, const char *const *argv,
+                      const char *const *envp);
 void proc_exit_current(int32_t code);
 int32_t proc_waitpid(int32_t pid, int32_t *status);
 

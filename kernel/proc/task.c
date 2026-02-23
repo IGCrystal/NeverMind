@@ -42,6 +42,18 @@ static struct nm_task *alloc_task_slot(void)
     return 0;
 }
 
+static uint32_t count_ptr_vector(const char *const *vec)
+{
+    if (vec == 0) {
+        return 0;
+    }
+    uint32_t count = 0;
+    while (vec[count] != 0 && count < 64) {
+        count++;
+    }
+    return count;
+}
+
 static uint8_t *alloc_task_stack(void)
 {
 #ifdef NEVERMIND_HOST_TEST
@@ -60,6 +72,8 @@ void proc_init(void)
         task_table[i].state = NM_TASK_UNUSED;
         task_table[i].pid = 0;
         task_table[i].exit_code = 0;
+        task_table[i].argc = 0;
+        task_table[i].envc = 0;
     }
     task_used = 0;
     next_pid = 1;
@@ -81,6 +95,8 @@ void proc_init(void)
     bootstrap->sched.timeslice_ticks = 4;
     bootstrap->sched.vruntime = 0;
     bootstrap->exit_code = 0;
+    bootstrap->argc = 0;
+    bootstrap->envc = 0;
     copy_name(bootstrap->name, "bootstrap", NM_TASK_NAME_MAX);
     for (size_t i = 0; i < NM_MAX_FDS; i++) {
         bootstrap->fd_table[i] = -1;
@@ -111,6 +127,8 @@ struct nm_task *task_create_kernel_thread(const char *name, void (*entry)(void *
     task->sched.timeslice_ticks = 4;
     task->sched.vruntime = 0;
     task->exit_code = 0;
+    task->argc = 0;
+    task->envc = 0;
     task->kernel_stack_top = (uint64_t *)(uintptr_t)(kstack + KSTACK_SIZE);
     task->regs.rsp = (uint64_t)(uintptr_t)task->kernel_stack_top;
     task->regs.rip = (uint64_t)(uintptr_t)entry;
@@ -195,7 +213,8 @@ struct nm_task *proc_fork_current(void)
     return child;
 }
 
-int proc_exec_current(const char *name, uint64_t entry)
+int proc_exec_current(const char *name, uint64_t entry, const char *const *argv,
+                      const char *const *envp)
 {
     if (current_task == 0 || name == 0) {
         return -1;
@@ -203,6 +222,11 @@ int proc_exec_current(const char *name, uint64_t entry)
 
     current_task->entry_name = name;
     copy_name(current_task->name, name, NM_TASK_NAME_MAX);
+    current_task->argc = count_ptr_vector(argv);
+    current_task->envc = count_ptr_vector(envp);
+    current_task->regs.rdi = (uint64_t)current_task->argc;
+    current_task->regs.rsi = (uint64_t)(uintptr_t)argv;
+    current_task->regs.rdx = (uint64_t)(uintptr_t)envp;
     if (entry != 0) {
         current_task->regs.rip = entry;
     }
