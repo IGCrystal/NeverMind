@@ -17,7 +17,10 @@ run_smoke_qemu() {
   shift
   shift
 
+  rm -f "$log_file"
+
   timeout "$timeout_value" qemu-system-x86_64 "$@" \
+    -boot d \
     -serial file:"$log_file" \
     -display none \
     -monitor none \
@@ -33,7 +36,7 @@ has_smoke_marker() {
 run_smoke_qemu "$BIOS_LOG" "$SMOKE_TIMEOUT" \
   -machine q35 \
   -m 512M \
-  -smp 2 \
+  -smp 1 \
   -cdrom "$ISO"
 
 if ! has_smoke_marker "$BIOS_LOG"; then
@@ -41,7 +44,7 @@ if ! has_smoke_marker "$BIOS_LOG"; then
   run_smoke_qemu "$BIOS_LOG" "$SMOKE_RETRY_TIMEOUT" \
     -machine q35 \
     -m 512M \
-    -smp 2 \
+    -smp 1 \
     -cdrom "$ISO"
 fi
 
@@ -59,7 +62,7 @@ if [[ -f "${OVMF_CODE:-/usr/share/OVMF/OVMF_CODE.fd}" ]]; then
   run_smoke_qemu "$UEFI_LOG" "$SMOKE_TIMEOUT" \
     -machine q35 \
     -m 512M \
-    -smp 2 \
+    -smp 1 \
     -bios "${OVMF_CODE:-/usr/share/OVMF/OVMF_CODE.fd}" \
     -cdrom "$ISO"
   if ! grep -Eq "$SMOKE_MARKER" "$UEFI_LOG"; then
