@@ -3,3 +3,19 @@ build/
 *.iso
 *.elf
 *.img
+tests/results-*/
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editor temp files
+*~
+*.swp
+*.swo
+
+# Crash dumps
+core
+core.*
+vgcore.*
