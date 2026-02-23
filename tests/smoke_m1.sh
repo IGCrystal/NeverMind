@@ -9,7 +9,7 @@ BIOS_LOG="$LOG_DIR/qemu-bios.log"
 BIOS_DEBUG_LOG="$LOG_DIR/qemu-bios-debug.log"
 KERNEL_MAP_LOG="$LOG_DIR/kernel.map"
 UEFI_LOG="$LOG_DIR/qemu-uefi.log"
-SMOKE_MARKER='NeverMind: M8 hardening\+ci ready|\[00\.000300\] tss ready'
+SMOKE_MARKER='NeverMind: M8 hardening\+ci ready'
 SMOKE_TIMEOUT="${SMOKE_TIMEOUT:-60s}"
 SMOKE_RETRY_TIMEOUT="${SMOKE_RETRY_TIMEOUT:-90s}"
 

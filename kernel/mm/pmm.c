@@ -168,7 +168,7 @@ static inline uint64_t kernel_symbol_to_phys(const void *sym)
     return addr;
 }
 
-static void init_runtime_bitmap(uint64_t frames)
+static void init_runtime_bitmap(uint64_t frames, uint64_t min_phys_base)
 {
     if (frames == 0) {
         frames = 1;
@@ -181,7 +181,12 @@ static void init_runtime_bitmap(uint64_t frames)
     bitmap_words = (frame_limit + BITMAP_WORD_BITS - 1ULL) / BITMAP_WORD_BITS;
     bitmap_bytes = bitmap_words * sizeof(uint64_t);
 
-    bitmap_phys_base = align_up_u64(kernel_symbol_to_phys(__kernel_phys_end), PAGE_SIZE);
+    uint64_t kernel_end_phys = kernel_symbol_to_phys(__kernel_phys_end);
+    if (min_phys_base < kernel_end_phys) {
+        min_phys_base = kernel_end_phys;
+    }
+
+    bitmap_phys_base = align_up_u64(min_phys_base, PAGE_SIZE);
     frame_bitmap = (uint64_t *)(uintptr_t)bitmap_phys_base;
 }
 
@@ -273,7 +278,7 @@ void pmm_init_from_ranges(const struct nm_mem_range *ranges, size_t count)
     }
 
     uint64_t detected_frames = highest_end / PAGE_SIZE;
-    init_runtime_bitmap(detected_frames);
+    init_runtime_bitmap(detected_frames, kernel_symbol_to_phys(__kernel_phys_end));
 
     mark_all_used();
 
@@ -292,7 +297,7 @@ void pmm_init_from_ranges(const struct nm_mem_range *ranges, size_t count)
 void pmm_init_from_multiboot2(uint64_t mb2_info_ptr)
 {
     if (mb2_info_ptr == 0) {
-        init_runtime_bitmap(MAX_FRAMES);
+        init_runtime_bitmap(MAX_FRAMES, kernel_symbol_to_phys(__kernel_phys_end));
         mark_all_used();
         reserve_range(0, 0x100000);
         reserve_range(kernel_symbol_to_phys(__kernel_phys_start),
@@ -302,22 +307,44 @@ void pmm_init_from_multiboot2(uint64_t mb2_info_ptr)
     }
 
     const struct mb2_info_header *hdr = (const struct mb2_info_header *)(uintptr_t)mb2_info_ptr;
+    if (hdr->total_size < sizeof(struct mb2_info_header)) {
+        init_runtime_bitmap(MAX_FRAMES, kernel_symbol_to_phys(__kernel_phys_end));
+        mark_all_used();
+        reserve_range(0, 0x100000);
+        reserve_range(kernel_symbol_to_phys(__kernel_phys_start),
+                      kernel_symbol_to_phys(__kernel_phys_end) - kernel_symbol_to_phys(__kernel_phys_start));
+        reserve_range(bitmap_phys_base, bitmap_bytes);
+        return;
+    }
+
     const uint8_t *cursor;
     const uint8_t *end = (const uint8_t *)(uintptr_t)(mb2_info_ptr + hdr->total_size);
     uint64_t highest_end = 0;
 
     cursor = (const uint8_t *)(uintptr_t)(mb2_info_ptr + 8);
-    while (cursor < end) {
+    while (cursor + sizeof(struct mb2_tag) <= end) {
         const struct mb2_tag *tag = (const struct mb2_tag *)cursor;
         if (tag->type == MB2_TAG_END) {
             break;
         }
 
+        if (tag->size < sizeof(struct mb2_tag)) {
+            break;
+        }
+
+        uint64_t aligned = ((uint64_t)tag->size + 7ULL) & ~7ULL;
+        const uint8_t *next = cursor + aligned;
+        if (next <= cursor || next > end) {
+            break;
+        }
+
         if (tag->type == MB2_TAG_MMAP) {
+            if (tag->size >= sizeof(struct mb2_tag_mmap)) {
             const struct mb2_tag_mmap *mmap_tag = (const struct mb2_tag_mmap *)tag;
             const uint8_t *entry_ptr = cursor + sizeof(struct mb2_tag_mmap);
             const uint8_t *entry_end = cursor + tag->size;
-            while (entry_ptr < entry_end) {
+                if (mmap_tag->entry_size >= sizeof(struct mb2_mmap_entry)) {
+            while (entry_ptr + sizeof(struct mb2_mmap_entry) <= entry_end) {
                 const struct mb2_mmap_entry *e = (const struct mb2_mmap_entry *)entry_ptr;
                 if (e->type == NM_MEM_AVAILABLE) {
                     uint64_t e_end = e->addr + e->len;
@@ -327,37 +354,53 @@ void pmm_init_from_multiboot2(uint64_t mb2_info_ptr)
                 }
                 entry_ptr += mmap_tag->entry_size;
             }
+                }
+            }
         }
 
-        cursor += (tag->size + 7U) & ~7U;
+        cursor = next;
     }
 
-    init_runtime_bitmap(highest_end / PAGE_SIZE);
+    init_runtime_bitmap(highest_end / PAGE_SIZE, mb2_info_ptr + hdr->total_size);
 
     mark_all_used();
 
     cursor = (const uint8_t *)(uintptr_t)(mb2_info_ptr + 8);
-    while (cursor < end) {
+    while (cursor + sizeof(struct mb2_tag) <= end) {
         const struct mb2_tag *tag = (const struct mb2_tag *)cursor;
         if (tag->type == MB2_TAG_END) {
             break;
         }
 
-        if (tag->type == MB2_TAG_MMAP) {
-            const struct mb2_tag_mmap *mmap_tag = (const struct mb2_tag_mmap *)tag;
-            const uint8_t *entry_ptr = cursor + sizeof(struct mb2_tag_mmap);
-            const uint8_t *entry_end = cursor + tag->size;
+        if (tag->size < sizeof(struct mb2_tag)) {
+            break;
+        }
 
-            while (entry_ptr < entry_end) {
-                const struct mb2_mmap_entry *e = (const struct mb2_mmap_entry *)entry_ptr;
-                if (e->type == NM_MEM_AVAILABLE) {
-                    mark_range_available(e->addr, e->len);
+        uint64_t aligned = ((uint64_t)tag->size + 7ULL) & ~7ULL;
+        const uint8_t *next = cursor + aligned;
+        if (next <= cursor || next > end) {
+            break;
+        }
+
+        if (tag->type == MB2_TAG_MMAP) {
+            if (tag->size >= sizeof(struct mb2_tag_mmap)) {
+                const struct mb2_tag_mmap *mmap_tag = (const struct mb2_tag_mmap *)tag;
+                const uint8_t *entry_ptr = cursor + sizeof(struct mb2_tag_mmap);
+                const uint8_t *entry_end = cursor + tag->size;
+
+                if (mmap_tag->entry_size >= sizeof(struct mb2_mmap_entry)) {
+                    while (entry_ptr + sizeof(struct mb2_mmap_entry) <= entry_end) {
+                        const struct mb2_mmap_entry *e = (const struct mb2_mmap_entry *)entry_ptr;
+                        if (e->type == NM_MEM_AVAILABLE) {
+                            mark_range_available(e->addr, e->len);
+                        }
+                        entry_ptr += mmap_tag->entry_size;
+                    }
                 }
-                entry_ptr += mmap_tag->entry_size;
             }
         }
 
-        cursor += (tag->size + 7U) & ~7U;
+        cursor = next;
     }
 
     reserve_range(0, 0x100000);
