@@ -44,15 +44,9 @@ void *kmalloc(size_t size)
 
     size_t total = sizeof(struct kmalloc_header) + size;
     size_t pages = (total + PAGE_SIZE - 1ULL) / PAGE_SIZE;
-    uint64_t first_page = pmm_alloc_page();
+    uint64_t first_page = pmm_alloc_pages(pages);
     if (first_page == 0) {
         return 0;
-    }
-
-    for (size_t i = 1; i < pages; i++) {
-        if (pmm_alloc_page() == 0) {
-            return 0;
-        }
     }
 
     struct kmalloc_header *header;

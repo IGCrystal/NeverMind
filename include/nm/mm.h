@@ -26,6 +26,7 @@ void mm_init(uint64_t mb2_info_ptr);
 
 void pmm_init_from_multiboot2(uint64_t mb2_info_ptr);
 void pmm_init_from_ranges(const struct nm_mem_range *ranges, size_t count);
+uint64_t pmm_alloc_pages(size_t count);
 uint64_t pmm_alloc_page(void);
 void pmm_free_page(uint64_t phys_addr);
 struct nm_mm_stats pmm_get_stats(void);

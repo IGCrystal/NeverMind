@@ -26,6 +26,7 @@ static uint64_t bitmap_words;
 static uint64_t bitmap_phys_base;
 static uint64_t bitmap_bytes;
 static uint64_t alloc_word_cursor;
+static volatile uint32_t pmm_lock_word;
 #endif
 
 #ifdef NEVERMIND_HOST_TEST
@@ -90,15 +91,15 @@ void pmm_init_from_multiboot2(uint64_t mb2_info_ptr)
     pmm_init_from_ranges(default_ranges, 1);
 }
 
-uint64_t pmm_alloc_page(void)
+uint64_t pmm_alloc_pages(size_t count)
 {
-    if (mm_stats.free_frames == 0) {
+    if (count == 0 || mm_stats.free_frames < count) {
         return 0;
     }
 
     for (size_t i = 0; i < HOST_MAX_ALLOCS; i++) {
         if (!host_allocs[i].used) {
-            void *ptr = calloc(1, PAGE_SIZE);
+            void *ptr = calloc(count, PAGE_SIZE);
             if (ptr == 0) {
                 return 0;
             }
@@ -106,13 +107,18 @@ uint64_t pmm_alloc_page(void)
             host_allocs[i].used = true;
             host_allocs[i].ptr = ptr;
             host_allocs[i].key = host_make_key();
-            mm_stats.free_frames--;
-            mm_stats.used_frames++;
+            mm_stats.free_frames -= count;
+            mm_stats.used_frames += count;
             return host_allocs[i].key;
         }
     }
 
     return 0;
+}
+
+uint64_t pmm_alloc_page(void)
+{
+    return pmm_alloc_pages(1);
 }
 
 void pmm_free_page(uint64_t phys_addr)
@@ -195,6 +201,18 @@ static inline bool frame_valid(uint64_t frame)
     return frame < frame_limit;
 }
 
+static inline void pmm_lock(void)
+{
+    while (__sync_lock_test_and_set(&pmm_lock_word, 1U) != 0U) {
+        __asm__ volatile("pause");
+    }
+}
+
+static inline void pmm_unlock(void)
+{
+    __sync_lock_release(&pmm_lock_word);
+}
+
 static inline void set_frame(uint64_t frame)
 {
     if (!frame_valid(frame)) {
@@ -227,6 +245,36 @@ static void mark_all_used(void)
     mm_stats.used_frames = frame_limit;
     mm_stats.reserved_frames = 0;
     alloc_word_cursor = 0;
+}
+
+static uint64_t alloc_single_page_unlocked(void)
+{
+    uint64_t start = alloc_word_cursor;
+    for (uint64_t pass = 0; pass < bitmap_words; pass++) {
+        uint64_t word_idx = (start + pass) % bitmap_words;
+        uint64_t word = frame_bitmap[word_idx];
+        if (word == UINT64_MAX) {
+            continue;
+        }
+
+        uint64_t free_mask = ~word;
+        if (free_mask == 0) {
+            continue;
+        }
+
+        uint64_t bit = (uint64_t)__builtin_ctzll(free_mask);
+        uint64_t frame = word_idx * BITMAP_WORD_BITS + bit;
+        if (!frame_valid(frame)) {
+            continue;
+        }
+
+        set_frame(frame);
+        mm_stats.free_frames--;
+        mm_stats.used_frames++;
+        alloc_word_cursor = word_idx;
+        return frame * PAGE_SIZE;
+    }
+    return 0;
 }
 
 static void mark_range_available(uint64_t base, uint64_t length)
@@ -266,6 +314,7 @@ static void reserve_range(uint64_t base, uint64_t length)
 
 void pmm_init_from_ranges(const struct nm_mem_range *ranges, size_t count)
 {
+    pmm_lock_word = 0;
     uint64_t highest_end = 0;
     for (size_t i = 0; i < count; i++) {
         if (ranges[i].type != NM_MEM_AVAILABLE) {
@@ -296,6 +345,7 @@ void pmm_init_from_ranges(const struct nm_mem_range *ranges, size_t count)
 
 void pmm_init_from_multiboot2(uint64_t mb2_info_ptr)
 {
+    pmm_lock_word = 0;
     if (mb2_info_ptr == 0) {
         init_runtime_bitmap(MAX_FRAMES, kernel_symbol_to_phys(__kernel_phys_end));
         mark_all_used();
@@ -434,39 +484,60 @@ void pmm_init_from_multiboot2(uint64_t mb2_info_ptr)
     reserve_range(mb2_info_ptr, hdr->total_size);
 }
 
-uint64_t pmm_alloc_page(void)
+uint64_t pmm_alloc_pages(size_t count)
 {
-    if (mm_stats.free_frames == 0) {
+    if (count == 0 || count > frame_limit) {
         return 0;
     }
 
-    uint64_t start = alloc_word_cursor;
-    for (uint64_t pass = 0; pass < bitmap_words; pass++) {
-        uint64_t word_idx = (start + pass) % bitmap_words;
-        uint64_t word = frame_bitmap[word_idx];
-        if (word == UINT64_MAX) {
-            continue;
-        }
-
-        uint64_t free_mask = ~word;
-        if (free_mask == 0) {
-            continue;
-        }
-
-        uint64_t bit = (uint64_t)__builtin_ctzll(free_mask);
-        uint64_t frame = word_idx * BITMAP_WORD_BITS + bit;
-        if (!frame_valid(frame)) {
-            continue;
-        }
-
-        set_frame(frame);
-        mm_stats.free_frames--;
-        mm_stats.used_frames++;
-        alloc_word_cursor = word_idx;
-        return frame * PAGE_SIZE;
+    pmm_lock();
+    if (mm_stats.free_frames < count) {
+        pmm_unlock();
+        return 0;
     }
 
+    if (count == 1) {
+        uint64_t one = alloc_single_page_unlocked();
+        pmm_unlock();
+        return one;
+    }
+
+    uint64_t start_frame = (alloc_word_cursor * BITMAP_WORD_BITS) % frame_limit;
+    for (uint64_t pass = 0; pass < frame_limit; pass++) {
+        uint64_t frame = (start_frame + pass) % frame_limit;
+        if (frame + count > frame_limit) {
+            continue;
+        }
+
+        bool ok = true;
+        for (size_t i = 0; i < count; i++) {
+            if (test_frame(frame + i)) {
+                ok = false;
+                break;
+            }
+        }
+        if (!ok) {
+            continue;
+        }
+
+        for (size_t i = 0; i < count; i++) {
+            set_frame(frame + i);
+        }
+        mm_stats.free_frames -= count;
+        mm_stats.used_frames += count;
+        alloc_word_cursor = (frame + count) / BITMAP_WORD_BITS;
+        uint64_t phys = frame * PAGE_SIZE;
+        pmm_unlock();
+        return phys;
+    }
+
+    pmm_unlock();
     return 0;
+}
+
+uint64_t pmm_alloc_page(void)
+{
+    return pmm_alloc_pages(1);
 }
 
 void pmm_free_page(uint64_t phys_addr)
@@ -475,8 +546,11 @@ void pmm_free_page(uint64_t phys_addr)
         return;
     }
 
+    pmm_lock();
+
     uint64_t frame = phys_addr / PAGE_SIZE;
     if (!frame_valid(frame) || !test_frame(frame)) {
+        pmm_unlock();
         return;
     }
 
@@ -484,11 +558,15 @@ void pmm_free_page(uint64_t phys_addr)
     mm_stats.free_frames++;
     mm_stats.used_frames--;
     alloc_word_cursor = frame / BITMAP_WORD_BITS;
+    pmm_unlock();
 }
 
 struct nm_mm_stats pmm_get_stats(void)
 {
-    return mm_stats;
+    pmm_lock();
+    struct nm_mm_stats snapshot = mm_stats;
+    pmm_unlock();
+    return snapshot;
 }
 
 #endif
