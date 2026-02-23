@@ -81,7 +81,7 @@ int tcp_listen(uint16_t port)
 
 int tcp_connect(uint32_t dst_ip, uint16_t dst_port, uint16_t src_port)
 {
-    struct tcp_conn *listener = find_listener(dst_port);
+    const struct tcp_conn *listener = find_listener(dst_port);
     if (!listener) {
         return -1;
     }

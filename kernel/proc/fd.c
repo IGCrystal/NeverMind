@@ -297,7 +297,7 @@ static int adopt_legacy_fs_fd(struct nm_task *task, int32_t fd)
         return -1;
     }
 
-    struct nm_fdobj *obj = fdobj_get(legacy);
+    const struct nm_fdobj *obj = fdobj_get(legacy);
     if (obj != 0) {
         return legacy;
     }
