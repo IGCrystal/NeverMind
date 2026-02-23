@@ -1,6 +1,7 @@
 #include <stdint.h>
 
 #include "nm/console.h"
+#include "nm/fs.h"
 #include "nm/gdt.h"
 #include "nm/idt.h"
 #include "nm/mm.h"
@@ -82,8 +83,15 @@ void kmain(uint64_t mb2_info)
     syscall_init();
     console_write("[00.000600] syscall ready\n");
 
+    fs_init();
+    if (fs_mount_root(tmpfs_filesystem()) == 0) {
+        console_write("[00.000700] fs ready: root=tmpfs\n");
+    } else {
+        console_write("[00.000700] fs ready: mount failed\n");
+    }
+
     kernel_banner();
-    console_write("[00.001000] NeverMind: M3 proc boot ok\n");
+    console_write("[00.001000] NeverMind: M4 fs boot ok\n");
 
     for (;;) {
         __asm__ volatile("hlt");

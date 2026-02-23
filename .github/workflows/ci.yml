@@ -23,13 +23,13 @@ jobs:
             gcc binutils make grub-pc-bin grub-common xorriso \
             qemu-system-x86 ovmf cppcheck clang-tools
 
-      - name: Build M1 image
+      - name: Build kernel image
         run: make all
 
       - name: Run unit tests
         run: make test
 
-      - name: Static analysis (M1 scope)
+      - name: Static analysis
         run: |
           cppcheck --enable=warning,style,performance --error-exitcode=1 \
             --inline-suppr --suppress=missingIncludeSystem kernel include

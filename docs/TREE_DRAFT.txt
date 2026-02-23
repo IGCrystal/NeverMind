@@ -17,12 +17,14 @@
 │   └── milestones
 │       ├── M1.md
 │       ├── M2.md
-│       └── M3.md
+│       ├── M3.md
+│       └── M4.md
 ├── grub
 │   └── grub.cfg
 ├── include
 │   └── nm
 │       ├── console.h
+│       ├── fs.h
 │       ├── gdt.h
 │       ├── idt.h
 │       ├── io.h
@@ -37,6 +39,10 @@
 │   ├── gdt.c
 │   ├── idt.c
 │   ├── kmain.c
+│   ├── fs
+│   │   ├── ext2.c
+│   │   ├── tmpfs.c
+│   │   └── vfs.c
 │   ├── mm
 │   │   ├── kheap.c
 │   │   ├── pmm.c
@@ -57,4 +63,5 @@
     ├── smoke_m1.sh
     └── unit
         ├── test_sched.c
-        └── test_pmm_kheap.c
+        ├── test_pmm_kheap.c
+        └── test_vfs.c

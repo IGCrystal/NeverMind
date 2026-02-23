@@ -28,7 +28,10 @@ KERNEL_SRCS := \
 	kernel/mm/kheap.c \
 	kernel/proc/task.c \
 	kernel/proc/sched.c \
-	kernel/syscall/syscall.c
+	kernel/syscall/syscall.c \
+	kernel/fs/vfs.c \
+	kernel/fs/tmpfs.c \
+	kernel/fs/ext2.c
 
 OBJS := $(BOOT_SRCS:%.S=$(BUILD_DIR)/%.o) $(PROC_ASM_SRCS:%.S=$(BUILD_DIR)/%.o) $(KERNEL_SRCS:%.c=$(BUILD_DIR)/%.o)
 
@@ -74,6 +77,11 @@ test:
 	  tests/unit/test_sched.c kernel/proc/task.c kernel/proc/sched.c \
 	  -Iinclude -DNEVERMIND_HOST_TEST -o $(BUILD_DIR)/test_sched
 	$(BUILD_DIR)/test_sched
+	$(CC) -std=c11 -Wall -Wextra -Werror -O2 \
+	  tests/unit/test_vfs.c kernel/fs/vfs.c kernel/fs/tmpfs.c kernel/fs/ext2.c kernel/string.c \
+	  -Iinclude -DNEVERMIND_HOST_TEST -o $(BUILD_DIR)/test_vfs
+	$(BUILD_DIR)/test_vfs
+
 
 clean:
 	rm -rf $(BUILD_DIR)

@@ -21,6 +21,14 @@ M3 引入进程线程与系统调用骨架：
 3. 上下文切换入口：x86_64 汇编 `nm_context_switch`
 4. syscall 分发层：`getpid` 与 `write` 示例
 
+## M4 范围
+
+M4 引入文件系统基础层：
+
+1. VFS：`vnode` + `file_ops` 抽象与统一文件 API
+2. tmpfs：内存文件系统（目录树、文件读写、stat）
+3. ext2：最小 inode/dir/block 元数据骨架与读写路径
+
 ## 启动链路
 
 1. BIOS 或 UEFI 固件进入 GRUB。
@@ -83,10 +91,30 @@ M1 尚未启用中断与多核并发路径，锁策略在 M3/M5 引入。当前�
 - 错误码：未注册 syscall 返回 `-ENOSYS`（当前编码 `-38`）
 - 示例 syscall：`getpid`, `write(fd=1)`
 
-## 测试策略（M1/M2）
+## 文件系统（M4）
+
+### VFS 抽象
+
+- 抽象对象：`nm_vnode`、`nm_file`、`nm_file_ops`
+- 接口：`fs_open/read/write/lseek/close/stat`
+- 路径解析：`fs_path_split` + 根文件系统 `lookup/create`
+
+### tmpfs
+
+- 结构：内存 vnode 树（parent/children/sibling）
+- 文件数据：可增长缓冲区
+- 操作：支持 `open/read/write/stat`
+
+### ext2 最小实现
+
+- 元数据：`inode_meta`（mode/uid/gid/links/blocks）
+- 目录项：vnode children 链接
+- 限制：当前为最小可测实现骨架，磁盘块组完整语义在后续版本补齐
+
+## 测试策略（M1-M4）
 
 - 构建验证：`make all`
-- 单元测试：`make test`（`pmm`/`kmalloc` + `scheduler` 用户态模拟）
+- 单元测试：`make test`（`pmm`/`kmalloc` + `scheduler` + `vfs` 用户态模拟）
 - 启动验证：`tests/smoke_m1.sh`
-- 验证条件：QEMU 串口日志包含 `NeverMind: M3 proc boot ok`
+- 验证条件：QEMU 串口日志包含 `NeverMind: M4 fs boot ok`
 - CI 失败策略：任一步骤失败即失败；失败时上传 QEMU 日志作为排障依据。
