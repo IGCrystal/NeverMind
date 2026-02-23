@@ -74,6 +74,7 @@ int tcp_listen(uint16_t port)
         return -1;
     }
     c->state = TCP_LISTEN;
+    c->local_ip = 0;
     c->local_port = port;
     return c->id;
 }
@@ -92,11 +93,13 @@ int tcp_connect(uint32_t dst_ip, uint16_t dst_port, uint16_t src_port)
     }
 
     cli->state = TCP_ESTABLISHED;
+    cli->local_ip = 0;
     cli->peer_ip = dst_ip;
     cli->peer_port = dst_port;
     cli->local_port = src_port;
 
     srv->state = TCP_SYN_RECV;
+    srv->local_ip = dst_ip;
     srv->local_port = dst_port;
     srv->peer_ip = dst_ip;
     srv->peer_port = src_port;
@@ -121,7 +124,7 @@ int tcp_accept(uint16_t listen_port)
 
 int tcp_send(int conn_id, const void *payload, uint16_t len)
 {
-    struct tcp_conn *c = find_by_id(conn_id);
+    const struct tcp_conn *c = find_by_id(conn_id);
     if (!c || c->state != TCP_ESTABLISHED || payload == 0 || len == 0) {
         return -1;
     }

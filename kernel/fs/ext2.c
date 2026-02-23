@@ -20,6 +20,7 @@ struct ext2_inode_meta {
 static struct ext2_inode_meta inode_meta[EXT2_MAX_INODES];
 static struct nm_vnode ext2_root;
 
+// cppcheck-suppress constParameterCallback
 static int ext2_open(struct nm_vnode *node, uint32_t flags)
 {
     (void)flags;
@@ -62,6 +63,7 @@ static int64_t ext2_write(struct nm_vnode *node, const void *buf, uint64_t offse
     return (int64_t)len;
 }
 
+// cppcheck-suppress constParameterCallback
 static int ext2_stat(struct nm_vnode *node, struct nm_stat *st)
 {
     if (node == 0 || st == 0 || node->ino >= EXT2_MAX_INODES) {
@@ -111,6 +113,7 @@ static struct nm_vnode *ext2_mount_root(void)
     return &ext2_root;
 }
 
+// cppcheck-suppress constParameterCallback
 static struct nm_vnode *ext2_lookup(struct nm_vnode *dir, const char *name)
 {
     if (dir == 0 || name == 0) {

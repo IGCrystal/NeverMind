@@ -121,12 +121,12 @@ bool vmm_unmap_page(uint64_t virt_addr)
         return false;
     }
 
-    uint64_t *pdpt = phys_to_ptr(kernel_pml4[pml4_i] & ~0xFFFULL);
+    const uint64_t *pdpt = phys_to_ptr(kernel_pml4[pml4_i] & ~0xFFFULL);
     if ((pdpt[pdpt_i] & PAGE_FLAG_PRESENT) == 0) {
         return false;
     }
 
-    uint64_t *pd = phys_to_ptr(pdpt[pdpt_i] & ~0xFFFULL);
+    const uint64_t *pd = phys_to_ptr(pdpt[pdpt_i] & ~0xFFFULL);
     if ((pd[pd_i] & PAGE_FLAG_PRESENT) == 0 || (pd[pd_i] & PAGE_FLAG_PS) != 0) {
         return false;
     }

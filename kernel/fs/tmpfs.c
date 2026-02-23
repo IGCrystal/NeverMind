@@ -66,6 +66,7 @@ static struct nm_vnode *alloc_node(void)
     return 0;
 }
 
+// cppcheck-suppress constParameterCallback
 static int tmpfs_open(struct nm_vnode *node, uint32_t flags)
 {
     (void)flags;
@@ -135,6 +136,7 @@ static int64_t tmpfs_write(struct nm_vnode *node, const void *buf, uint64_t offs
     return (int64_t)len;
 }
 
+// cppcheck-suppress constParameterCallback
 static int tmpfs_stat(struct nm_vnode *node, struct nm_stat *st)
 {
     if (node == 0 || st == 0) {

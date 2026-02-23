@@ -61,9 +61,6 @@ void *kmalloc(size_t size)
 #else
     header = (struct kmalloc_header *)(uintptr_t)first_page;
 #endif
-    if (header == 0) {
-        return 0;
-    }
     header->magic = KMALLOC_MAGIC;
     header->size = (uint32_t)(pages * PAGE_SIZE - sizeof(*header));
     header->next = 0;

@@ -13,7 +13,7 @@ int nm_fd_pipe(struct nm_task *task, int32_t *read_fd, int32_t *write_fd);
 int64_t nm_fd_dup2(struct nm_task *task, int32_t oldfd, int32_t newfd);
 int nm_fd_on_fork_child(struct nm_task *child);
 int nm_fd_set_cloexec(struct nm_task *task, int32_t fd, int enabled);
-int nm_fd_get_cloexec(struct nm_task *task, int32_t fd);
+int nm_fd_get_cloexec(const struct nm_task *task, int32_t fd);
 void nm_fd_close_on_exec(struct nm_task *task);
 
 #endif

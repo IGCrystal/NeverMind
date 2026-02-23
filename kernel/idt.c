@@ -19,8 +19,27 @@ struct __attribute__((packed)) idt_ptr {
 
 static struct idt_gate idt[256];
 
+static void idt_set_gate(int vec, uint64_t handler, uint8_t type_attr, uint8_t ist)
+{
+    if (vec < 0 || vec >= 256) {
+        return;
+    }
+
+    idt[vec].offset_low = (uint16_t)(handler & 0xFFFFULL);
+    idt[vec].selector = 0x08;
+    idt[vec].ist = ist;
+    idt[vec].type_attr = type_attr;
+    idt[vec].offset_mid = (uint16_t)((handler >> 16) & 0xFFFFULL);
+    idt[vec].offset_high = (uint32_t)((handler >> 32) & 0xFFFFFFFFULL);
+    idt[vec].zero = 0;
+}
+
 void idt_init(void)
 {
+    for (int i = 0; i < 256; i++) {
+        idt_set_gate(i, 0, 0, 0);
+    }
+
     struct idt_ptr idtp = {
         .limit = (uint16_t)(sizeof(idt) - 1),
         .base = (uint64_t)&idt,

@@ -48,7 +48,7 @@ static uint32_t count_ptr_vector(const char *const *vec)
         return 0;
     }
     uint32_t count = 0;
-    while (vec[count] != 0 && count < 64) {
+    while (count < 64 && vec[count] != 0) {
         count++;
     }
     return count;

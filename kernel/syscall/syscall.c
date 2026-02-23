@@ -21,7 +21,7 @@ static int64_t sys_getpid(uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, ui
     (void)a5;
     (void)a6;
 
-    struct nm_task *cur = task_current();
+    const struct nm_task *cur = task_current();
     if (cur == 0) {
         return -1;
     }

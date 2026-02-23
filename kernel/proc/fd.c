@@ -36,7 +36,7 @@ struct nm_fdobj {
 static struct nm_pipe pipe_table[NM_PIPE_MAX];
 static struct nm_fdobj fdobj_table[NM_FDOBJ_MAX];
 
-static int alloc_task_fd(struct nm_task *task)
+static int alloc_task_fd(const struct nm_task *task)
 {
     if (task == 0) {
         return -1;
@@ -529,7 +529,7 @@ int nm_fd_set_cloexec(struct nm_task *task, int32_t fd, int enabled)
     return 0;
 }
 
-int nm_fd_get_cloexec(struct nm_task *task, int32_t fd)
+int nm_fd_get_cloexec(const struct nm_task *task, int32_t fd)
 {
     if (task == 0 || fd < 0 || fd >= NM_MAX_FDS || task->fd_table[fd] == -1) {
         return -1;

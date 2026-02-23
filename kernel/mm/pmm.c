@@ -79,7 +79,7 @@ void pmm_init_from_ranges(const struct nm_mem_range *ranges, size_t count)
 void pmm_init_from_multiboot2(uint64_t mb2_info_ptr)
 {
     (void)mb2_info_ptr;
-    struct nm_mem_range default_ranges[] = {
+    const struct nm_mem_range default_ranges[] = {
         {.base = 0x00100000, .length = 64ULL * 1024ULL * 1024ULL, .type = NM_MEM_AVAILABLE},
     };
     pmm_init_from_ranges(default_ranges, 1);
@@ -240,25 +240,25 @@ void pmm_init_from_multiboot2(uint64_t mb2_info_ptr)
         return;
     }
 
-    struct mb2_info_header *hdr = (struct mb2_info_header *)(uintptr_t)mb2_info_ptr;
-    uint8_t *cursor = (uint8_t *)(uintptr_t)(mb2_info_ptr + 8);
-    uint8_t *end = (uint8_t *)(uintptr_t)(mb2_info_ptr + hdr->total_size);
+    const struct mb2_info_header *hdr = (const struct mb2_info_header *)(uintptr_t)mb2_info_ptr;
+    const uint8_t *cursor = (const uint8_t *)(uintptr_t)(mb2_info_ptr + 8);
+    const uint8_t *end = (const uint8_t *)(uintptr_t)(mb2_info_ptr + hdr->total_size);
 
     mark_all_used();
 
     while (cursor < end) {
-        struct mb2_tag *tag = (struct mb2_tag *)cursor;
+        const struct mb2_tag *tag = (const struct mb2_tag *)cursor;
         if (tag->type == MB2_TAG_END) {
             break;
         }
 
         if (tag->type == MB2_TAG_MMAP) {
-            struct mb2_tag_mmap *mmap_tag = (struct mb2_tag_mmap *)tag;
-            uint8_t *entry_ptr = cursor + sizeof(struct mb2_tag_mmap);
-            uint8_t *entry_end = cursor + tag->size;
+            const struct mb2_tag_mmap *mmap_tag = (const struct mb2_tag_mmap *)tag;
+            const uint8_t *entry_ptr = cursor + sizeof(struct mb2_tag_mmap);
+            const uint8_t *entry_end = cursor + tag->size;
 
             while (entry_ptr < entry_end) {
-                struct mb2_mmap_entry *e = (struct mb2_mmap_entry *)entry_ptr;
+                const struct mb2_mmap_entry *e = (const struct mb2_mmap_entry *)entry_ptr;
                 if (e->type == NM_MEM_AVAILABLE) {
                     mark_range_available(e->addr, e->len);
                 }
