@@ -8,6 +8,12 @@
 enum nm_syscall_nr {
     NM_SYS_GETPID = 0,
     NM_SYS_WRITE = 1,
+    NM_SYS_READ = 2,
+    NM_SYS_CLOSE = 3,
+    NM_SYS_EXIT = 4,
+    NM_SYS_WAITPID = 5,
+    NM_SYS_PIPE = 6,
+    NM_SYS_DUP2 = 7,
 };
 
 typedef int64_t (*nm_syscall_handler_t)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t);

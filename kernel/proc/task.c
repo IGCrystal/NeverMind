@@ -47,6 +47,7 @@ void proc_init(void)
     for (size_t i = 0; i < NM_MAX_TASKS; i++) {
         task_table[i].state = NM_TASK_UNUSED;
         task_table[i].pid = 0;
+        task_table[i].exit_code = 0;
     }
     task_used = 0;
     next_pid = 1;
@@ -67,7 +68,11 @@ void proc_init(void)
     bootstrap->sched.priority = 20;
     bootstrap->sched.timeslice_ticks = 4;
     bootstrap->sched.vruntime = 0;
+    bootstrap->exit_code = 0;
     copy_name(bootstrap->name, "bootstrap", NM_TASK_NAME_MAX);
+    for (size_t i = 0; i < NM_MAX_FDS; i++) {
+        bootstrap->fd_table[i] = -1;
+    }
     task_used = 1;
     current_task = bootstrap;
 }
@@ -101,6 +106,7 @@ struct nm_task *task_create_kernel_thread(const char *name, void (*entry)(void *
     task->sched.priority = 20;
     task->sched.timeslice_ticks = 4;
     task->sched.vruntime = 0;
+    task->exit_code = 0;
     task->kernel_stack_top = (uint64_t *)(uintptr_t)(kstack + KSTACK_SIZE);
     task->regs.rsp = (uint64_t)(uintptr_t)task->kernel_stack_top;
     task->regs.rip = (uint64_t)(uintptr_t)entry;
@@ -149,4 +155,59 @@ size_t task_count(void)
 void nm_set_current_task(struct nm_task *task)
 {
     current_task = task;
+}
+
+void proc_set_current(struct nm_task *task)
+{
+    current_task = task;
+}
+
+void proc_exit_current(int32_t code)
+{
+    if (current_task == 0) {
+        return;
+    }
+    current_task->exit_code = code;
+    current_task->state = NM_TASK_ZOMBIE;
+}
+
+int32_t proc_waitpid(int32_t pid, int32_t *status)
+{
+    if (current_task == 0) {
+        return -1;
+    }
+
+    struct nm_task *match = 0;
+    for (size_t i = 0; i < NM_MAX_TASKS; i++) {
+        struct nm_task *task = &task_table[i];
+        if (task->state != NM_TASK_ZOMBIE) {
+            continue;
+        }
+        if (task->ppid != current_task->pid) {
+            continue;
+        }
+        if (pid > 0 && task->pid != pid) {
+            continue;
+        }
+        match = task;
+        break;
+    }
+
+    if (match == 0) {
+        return -1;
+    }
+
+    if (status != 0) {
+        *status = match->exit_code;
+    }
+
+    int32_t found_pid = match->pid;
+    match->state = NM_TASK_UNUSED;
+    match->pid = 0;
+    match->ppid = 0;
+    match->exit_code = 0;
+    if (task_used > 0) {
+        task_used--;
+    }
+    return found_pid;
 }

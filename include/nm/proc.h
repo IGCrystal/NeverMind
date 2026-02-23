@@ -57,6 +57,7 @@ struct nm_task {
     uint64_t cr3;
     int32_t fd_table[NM_MAX_FDS];
     uint64_t signal_mask;
+    int32_t exit_code;
     struct nm_sched_param sched;
     uint64_t *kernel_stack_top;
     const char *entry_name;
@@ -69,6 +70,9 @@ struct nm_task *task_current(void);
 struct nm_task *task_by_pid(int32_t pid);
 struct nm_task *task_by_index(size_t index);
 size_t task_count(void);
+void proc_set_current(struct nm_task *task);
+void proc_exit_current(int32_t code);
+int32_t proc_waitpid(int32_t pid, int32_t *status);
 
 void sched_init(enum nm_sched_policy policy);
 void sched_set_policy(enum nm_sched_policy policy);

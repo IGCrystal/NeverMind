@@ -109,6 +109,10 @@ test:
 	  tests/unit/test_shell.c userspace/shell.c kernel/fs/vfs.c kernel/fs/tmpfs.c kernel/fs/ext2.c \
 	  kernel/string.c -Iinclude -DNEVERMIND_HOST_TEST -o $(BUILD_DIR)/test_shell
 	$(BUILD_DIR)/test_shell
+	$(CC) -std=c11 -Wall -Wextra -Werror -O2 \
+	  tests/unit/test_syscall_m9.c kernel/syscall/syscall.c kernel/proc/task.c kernel/string.c \
+	  kernel/fs/vfs.c -Iinclude -DNEVERMIND_HOST_TEST -o $(BUILD_DIR)/test_syscall_m9
+	$(BUILD_DIR)/test_syscall_m9
 
 integration: test
 	$(CC) -std=c11 -Wall -Wextra -Werror -O2 \
