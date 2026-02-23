@@ -53,14 +53,14 @@ static inline void fd_unlock(void)
 static int alloc_task_fd(const struct nm_task *task)
 {
     if (task == 0) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
     for (int i = 0; i < NM_MAX_FDS; i++) {
         if (task->fd_table[i] == -1) {
             return i;
         }
     }
-    return -1;
+    return NM_ERR(NM_EFAIL);
 }
 
 static int alloc_fdobj(void)
@@ -75,7 +75,7 @@ static int alloc_fdobj(void)
             return i;
         }
     }
-    return -1;
+    return NM_ERR(NM_EFAIL);
 }
 
 static struct nm_fdobj *fdobj_get(int32_t id)
@@ -135,7 +135,7 @@ static int fdobj_retain(int32_t id)
 {
     struct nm_fdobj *obj = fdobj_get(id);
     if (obj == 0) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     obj->refcnt++;
@@ -147,7 +147,7 @@ static int fdobj_release(int32_t id)
 {
     struct nm_fdobj *obj = fdobj_get(id);
     if (obj == 0 || obj->refcnt == 0) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     pipe_on_endpoint_release(obj->kind, obj->pipe_id);
@@ -171,7 +171,7 @@ static int fdobj_release(int32_t id)
 static int32_t task_fdobj_id(struct nm_task *task, int32_t fd)
 {
     if (task == 0 || fd < 0 || fd >= NM_MAX_FDS) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
     return task->fd_table[fd];
 }
@@ -179,7 +179,7 @@ static int32_t task_fdobj_id(struct nm_task *task, int32_t fd)
 static int task_install_fdobj(struct nm_task *task, int32_t fd, int32_t obj_id)
 {
     if (task == 0 || fd < 0 || fd >= NM_MAX_FDS) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
     task->fd_table[fd] = obj_id;
     return 0;
@@ -188,16 +188,16 @@ static int task_install_fdobj(struct nm_task *task, int32_t fd, int32_t obj_id)
 static int task_close_fd(struct nm_task *task, int32_t fd)
 {
     if (task == 0 || fd < 0 || fd >= NM_MAX_FDS) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     int32_t obj_id = task->fd_table[fd];
     if (obj_id == -1) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     if (fdobj_release(obj_id) != 0) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
     task->fd_table[fd] = -1;
     task->fd_cloexec_mask &= ~(1U << (uint32_t)fd);
@@ -208,7 +208,7 @@ static int create_pipe_endpoint_obj(enum nm_fdobj_kind kind, int32_t pipe_id)
 {
     int obj_id = alloc_fdobj();
     if (obj_id < 0) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     struct nm_fdobj *obj = &fdobj_table[obj_id];
@@ -222,7 +222,7 @@ static int create_fs_obj(int32_t fs_fd)
 {
     int obj_id = alloc_fdobj();
     if (obj_id < 0) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     struct nm_fdobj *obj = &fdobj_table[obj_id];
@@ -235,7 +235,7 @@ static int create_fs_obj(int32_t fs_fd)
 static int64_t read_from_pipe(struct nm_pipe *pipe, void *buf, uint64_t len)
 {
     if (pipe == 0 || !pipe->used || buf == 0) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     uint8_t *out = (uint8_t *)buf;
@@ -251,7 +251,7 @@ static int64_t read_from_pipe(struct nm_pipe *pipe, void *buf, uint64_t len)
 static int64_t write_to_pipe(struct nm_pipe *pipe, const void *buf, uint64_t len)
 {
     if (pipe == 0 || !pipe->used || buf == 0) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     const uint8_t *in = (const uint8_t *)buf;
@@ -267,12 +267,12 @@ static int64_t write_to_pipe(struct nm_pipe *pipe, const void *buf, uint64_t len
 static int64_t read_from_fdobj(struct nm_fdobj *obj, void *buf, uint64_t len)
 {
     if (obj == 0) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     if (obj->kind == NM_FDOBJ_PIPE_R) {
         if (obj->pipe_id < 0 || obj->pipe_id >= NM_PIPE_MAX) {
-            return -1;
+            return NM_ERR(NM_EFAIL);
         }
         return read_from_pipe(&pipe_table[obj->pipe_id], buf, len);
     }
@@ -281,18 +281,18 @@ static int64_t read_from_fdobj(struct nm_fdobj *obj, void *buf, uint64_t len)
         return fs_read(obj->fs_fd, buf, len);
     }
 
-    return -1;
+    return NM_ERR(NM_EFAIL);
 }
 
 static int64_t write_to_fdobj(struct nm_fdobj *obj, const void *buf, uint64_t len)
 {
     if (obj == 0) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     if (obj->kind == NM_FDOBJ_PIPE_W) {
         if (obj->pipe_id < 0 || obj->pipe_id >= NM_PIPE_MAX) {
-            return -1;
+            return NM_ERR(NM_EFAIL);
         }
         return write_to_pipe(&pipe_table[obj->pipe_id], buf, len);
     }
@@ -301,14 +301,14 @@ static int64_t write_to_fdobj(struct nm_fdobj *obj, const void *buf, uint64_t le
         return fs_write(obj->fs_fd, buf, len);
     }
 
-    return -1;
+    return NM_ERR(NM_EFAIL);
 }
 
 static int adopt_legacy_fs_fd(struct nm_task *task, int32_t fd)
 {
     int32_t legacy = task_fdobj_id(task, fd);
     if (legacy < 0 || legacy >= NM_FDOBJ_MAX) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     const struct nm_fdobj *obj = fdobj_get(legacy);
@@ -318,7 +318,7 @@ static int adopt_legacy_fs_fd(struct nm_task *task, int32_t fd)
 
     int obj_id = create_fs_obj(legacy);
     if (obj_id < 0) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     (void)task_install_fdobj(task, fd, obj_id);

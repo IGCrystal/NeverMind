@@ -3,6 +3,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "nm/errno.h"
+
 #ifdef NEVERMIND_HOST_TEST
 #include <stdlib.h>
 #endif
@@ -44,10 +46,10 @@ static int64_t ext2_read(struct nm_vnode *node, void *buf, uint64_t offset, uint
 static int64_t ext2_write(struct nm_vnode *node, const void *buf, uint64_t offset, uint64_t len)
 {
     if (node == 0 || buf == 0 || node->data == 0) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
     if (offset + len > node->capacity) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
     const uint8_t *src = (const uint8_t *)buf;
     for (uint64_t i = 0; i < len; i++) {
@@ -67,7 +69,7 @@ static int64_t ext2_write(struct nm_vnode *node, const void *buf, uint64_t offse
 static int ext2_stat(struct nm_vnode *node, struct nm_stat *st)
 {
     if (node == 0 || st == 0 || node->ino >= EXT2_MAX_INODES) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
     st->ino = node->ino;
     st->size = node->size;

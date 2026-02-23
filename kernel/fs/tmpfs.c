@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "nm/errno.h"
 #include "nm/string.h"
 
 #ifdef NEVERMIND_HOST_TEST
@@ -76,7 +77,7 @@ static int tmpfs_open(struct nm_vnode *node, uint32_t flags)
 static int64_t tmpfs_read(struct nm_vnode *node, void *buf, uint64_t offset, uint64_t len)
 {
     if (node == 0 || buf == 0 || node->type != NM_NODE_FILE) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
     if (offset >= node->size) {
         return 0;
@@ -103,7 +104,7 @@ static int tmpfs_reserve(struct nm_vnode *node, uint64_t need)
 
     uint8_t *new_buf = (uint8_t *)NM_ALLOC((size_t)cap);
     if (new_buf == 0) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     for (uint64_t i = 0; i < node->size; i++) {
@@ -120,10 +121,10 @@ static int tmpfs_reserve(struct nm_vnode *node, uint64_t need)
 static int64_t tmpfs_write(struct nm_vnode *node, const void *buf, uint64_t offset, uint64_t len)
 {
     if (node == 0 || buf == 0 || node->type != NM_NODE_FILE) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
     if (tmpfs_reserve(node, offset + len) != 0) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     const uint8_t *src = (const uint8_t *)buf;
@@ -140,7 +141,7 @@ static int64_t tmpfs_write(struct nm_vnode *node, const void *buf, uint64_t offs
 static int tmpfs_stat(struct nm_vnode *node, struct nm_stat *st)
 {
     if (node == 0 || st == 0) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
     st->ino = node->ino;
     st->size = node->size;

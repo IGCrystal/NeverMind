@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "nm/errno.h"
 #include "nm/rtl8139.h"
 
 void ipv4_input(const uint8_t *packet, uint16_t len);
@@ -83,7 +84,7 @@ void net_set_identity(const uint8_t mac[6], uint32_t ip, uint32_t gateway, uint3
 int net_send_frame(const void *frame, uint64_t len)
 {
     if (frame == 0 || len < sizeof(struct eth_hdr)) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
     net_lock();
     stats.tx_frames++;
@@ -106,7 +107,7 @@ int net_input_frame(const void *frame, uint64_t len)
         net_lock();
         stats.rx_dropped++;
         net_unlock();
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     const struct eth_hdr *eth = (const struct eth_hdr *)frame;
@@ -130,7 +131,7 @@ int net_input_frame(const void *frame, uint64_t len)
     net_lock();
     stats.rx_dropped++;
     net_unlock();
-    return -1;
+    return NM_ERR(NM_EFAIL);
 }
 
 void net_poll(void)
