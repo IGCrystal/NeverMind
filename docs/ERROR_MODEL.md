@@ -36,3 +36,10 @@
 - 新增 `tests/lint_error_model.sh`：扫描 `kernel/**/*.c`，禁止新增裸 `return -1;` 与 `return -38;`。
 - 新增 `tests/lint_errno_usage.sh`：检查 `NM_E*` 的“使用必须有定义”，并报告“已定义但暂未使用”符号。
 - `make test` 已接入 `make lint-error` 前置门禁。
+
+## 6. 语义细分进度
+
+- 参数非法场景开始返回 `NM_EINVAL`（示例：`sys_write/sys_read` 空缓冲区、`sys_pipe` 空指针参数）。
+- 查找失败场景开始返回 `NM_ENOENT`（示例：`nm_exec_resolve_entry` 未命中）。
+- 分配失败场景开始返回 `NM_ENOMEM`（示例：`tmpfs_reserve` 扩容分配失败）。
+- 资源繁忙场景开始返回 `NM_EBUSY`（示例：IRQ bottom-half 队列满）。

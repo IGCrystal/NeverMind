@@ -33,7 +33,7 @@ static int bh_enqueue(nm_irq_bottom_half_t fn, void *ctx)
 {
     size_t next = (bh_tail + 1) % NM_BH_QUEUE_CAP;
     if (next == bh_head) {
-        return NM_ERR(NM_EFAIL);
+        return NM_ERR(NM_EBUSY);
     }
     bh_queue[bh_tail].fn = fn;
     bh_queue[bh_tail].ctx = ctx;

@@ -37,7 +37,7 @@ static int64_t sys_write(uint64_t fd, uint64_t buf, uint64_t len, uint64_t a4, u
     (void)a6;
 
     if (buf == 0) {
-        return NM_ERR(NM_EFAIL);
+        return NM_ERR(NM_EINVAL);
     }
 
     struct nm_task *cur = task_current();
@@ -73,7 +73,7 @@ static int64_t sys_read(uint64_t fd, uint64_t buf, uint64_t len, uint64_t a4, ui
     (void)a6;
 
     if (buf == 0) {
-        return NM_ERR(NM_EFAIL);
+        return NM_ERR(NM_EINVAL);
     }
 
     struct nm_task *cur = task_current();
@@ -146,7 +146,7 @@ static int64_t sys_pipe(uint64_t fds_ptr, uint64_t a2, uint64_t a3, uint64_t a4,
 
     struct nm_task *cur = task_current();
     if (cur == 0 || fds_ptr == 0) {
-        return NM_ERR(NM_EFAIL);
+        return NM_ERR(NM_EINVAL);
     }
 
     int32_t rd = -1;
@@ -198,7 +198,7 @@ static int64_t sys_fd_cloexec(uint64_t fd, uint64_t enabled, uint64_t a3, uint64
         return nm_fd_get_cloexec(cur, (int32_t)fd);
     }
 
-    return NM_ERR(NM_EFAIL);
+    return NM_ERR(NM_EINVAL);
 }
 
 static int64_t sys_fork(uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,

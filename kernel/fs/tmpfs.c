@@ -104,7 +104,7 @@ static int tmpfs_reserve(struct nm_vnode *node, uint64_t need)
 
     uint8_t *new_buf = (uint8_t *)NM_ALLOC((size_t)cap);
     if (new_buf == 0) {
-        return NM_ERR(NM_EFAIL);
+        return NM_ERR(NM_ENOMEM);
     }
 
     for (uint64_t i = 0; i < node->size; i++) {
