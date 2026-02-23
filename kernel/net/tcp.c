@@ -31,6 +31,19 @@ struct tcp_conn {
 
 static struct tcp_conn conns[TCP_CONN_MAX];
 static int next_id = 1;
+static volatile uint32_t tcp_lock_word;
+
+static inline void tcp_lock(void)
+{
+    while (__sync_lock_test_and_set(&tcp_lock_word, 1U) != 0U) {
+        __asm__ volatile("pause");
+    }
+}
+
+static inline void tcp_unlock(void)
+{
+    __sync_lock_release(&tcp_lock_word);
+}
 
 static struct tcp_conn *find_by_id(int id)
 {
@@ -69,26 +82,33 @@ static struct tcp_conn *alloc_conn(void)
 
 int tcp_listen(uint16_t port)
 {
+    tcp_lock();
     struct tcp_conn *c = alloc_conn();
     if (!c) {
+        tcp_unlock();
         return -1;
     }
     c->state = TCP_LISTEN;
     c->local_ip = 0;
     c->local_port = port;
-    return c->id;
+    int id = c->id;
+    tcp_unlock();
+    return id;
 }
 
 int tcp_connect(uint32_t dst_ip, uint16_t dst_port, uint16_t src_port)
 {
+    tcp_lock();
     const struct tcp_conn *listener = find_listener(dst_port);
     if (!listener) {
+        tcp_unlock();
         return -1;
     }
 
     struct tcp_conn *cli = alloc_conn();
     struct tcp_conn *srv = alloc_conn();
     if (!cli || !srv) {
+        tcp_unlock();
         return -1;
     }
 
@@ -108,29 +128,38 @@ int tcp_connect(uint32_t dst_ip, uint16_t dst_port, uint16_t src_port)
     srv->peer_id = cli->id;
 
     net_stats_note_tcp_conn();
-    return cli->id;
+    int id = cli->id;
+    tcp_unlock();
+    return id;
 }
 
 int tcp_accept(uint16_t listen_port)
 {
+    tcp_lock();
     for (int i = 0; i < TCP_CONN_MAX; i++) {
         if (conns[i].used && conns[i].state == TCP_SYN_RECV && conns[i].local_port == listen_port) {
             conns[i].state = TCP_ESTABLISHED;
-            return conns[i].id;
+            int id = conns[i].id;
+            tcp_unlock();
+            return id;
         }
     }
+    tcp_unlock();
     return -1;
 }
 
 int tcp_send(int conn_id, const void *payload, uint16_t len)
 {
+    tcp_lock();
     const struct tcp_conn *c = find_by_id(conn_id);
     if (!c || c->state != TCP_ESTABLISHED || payload == 0 || len == 0) {
+        tcp_unlock();
         return -1;
     }
 
     struct tcp_conn *peer = find_by_id(c->peer_id);
     if (!peer || peer->state != TCP_ESTABLISHED) {
+        tcp_unlock();
         return -1;
     }
 
@@ -139,16 +168,20 @@ int tcp_send(int conn_id, const void *payload, uint16_t len)
         peer->rx_buf[i] = ((const uint8_t *)payload)[i];
     }
     peer->rx_len = n;
+    tcp_unlock();
     return n;
 }
 
 int tcp_recv(int conn_id, void *payload, uint16_t cap)
 {
+    tcp_lock();
     struct tcp_conn *c = find_by_id(conn_id);
     if (!c || c->state != TCP_ESTABLISHED || payload == 0) {
+        tcp_unlock();
         return -1;
     }
     if (c->rx_len == 0) {
+        tcp_unlock();
         return 0;
     }
 
@@ -157,16 +190,20 @@ int tcp_recv(int conn_id, void *payload, uint16_t cap)
         ((uint8_t *)payload)[i] = c->rx_buf[i];
     }
     c->rx_len = 0;
+    tcp_unlock();
     return n;
 }
 
 int tcp_close(int conn_id)
 {
+    tcp_lock();
     struct tcp_conn *c = find_by_id(conn_id);
     if (!c) {
+        tcp_unlock();
         return -1;
     }
     c->used = false;
+    tcp_unlock();
     return 0;
 }
 

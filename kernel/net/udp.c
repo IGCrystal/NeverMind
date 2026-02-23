@@ -25,6 +25,19 @@ struct udp_port {
 };
 
 static struct udp_port ports[UDP_PORT_MAX];
+static volatile uint32_t udp_lock_word;
+
+static inline void udp_lock(void)
+{
+    while (__sync_lock_test_and_set(&udp_lock_word, 1U) != 0U) {
+        __asm__ volatile("pause");
+    }
+}
+
+static inline void udp_unlock(void)
+{
+    __sync_lock_release(&udp_lock_word);
+}
 
 static struct udp_port *find_port(uint16_t port)
 {
@@ -41,7 +54,10 @@ int udp_bind(uint16_t port)
     if (port == 0) {
         return -1;
     }
+
+    udp_lock();
     if (find_port(port)) {
+        udp_unlock();
         return 0;
     }
     for (int i = 0; i < UDP_PORT_MAX; i++) {
@@ -51,27 +67,34 @@ int udp_bind(uint16_t port)
             for (int j = 0; j < UDP_QUEUE_CAP; j++) {
                 ports[i].q[j].used = false;
             }
+            udp_unlock();
             return 0;
         }
     }
+    udp_unlock();
     return -1;
 }
 
 int udp_unbind(uint16_t port)
 {
+    udp_lock();
     struct udp_port *p = find_port(port);
     if (!p) {
+        udp_unlock();
         return -1;
     }
     p->used = false;
+    udp_unlock();
     return 0;
 }
 
 static int udp_deliver(uint16_t dst_port, uint32_t src_ip, uint16_t src_port, const void *payload,
                        uint16_t len)
 {
+    udp_lock();
     struct udp_port *p = find_port(dst_port);
     if (!p) {
+        udp_unlock();
         return -1;
     }
 
@@ -85,9 +108,11 @@ static int udp_deliver(uint16_t dst_port, uint32_t src_ip, uint16_t src_port, co
                 p->q[i].payload[j] = ((const uint8_t *)payload)[j];
             }
             net_stats_note_udp_rx();
+            udp_unlock();
             return p->q[i].len;
         }
     }
+    udp_unlock();
     return -1;
 }
 
@@ -102,8 +127,10 @@ int udp_sendto(uint16_t src_port, uint32_t dst_ip, uint16_t dst_port, const void
 
 int udp_recv(uint16_t port, void *payload, uint16_t cap, uint32_t *src_ip, uint16_t *src_port)
 {
+    udp_lock();
     struct udp_port *p = find_port(port);
     if (!p || payload == 0) {
+        udp_unlock();
         return -1;
     }
 
@@ -120,9 +147,11 @@ int udp_recv(uint16_t port, void *payload, uint16_t cap, uint32_t *src_ip, uint1
                 *src_port = p->q[i].src_port;
             }
             p->q[i].used = false;
+            udp_unlock();
             return n;
         }
     }
+    udp_unlock();
     return 0;
 }
 
