@@ -30,3 +30,9 @@
 
 - 阶段 2：将 `fs/net/proc` 公共接口逐步从裸 `-1` 迁移到明确错误码。
 - 阶段 3：在用户态 ABI 层引入 errno 映射与一致的错误文档。
+
+## 5. CI 防回退
+
+- 新增 `tests/lint_error_model.sh`：扫描 `kernel/**/*.c`，禁止新增裸 `return -1;` 与 `return -38;`。
+- 新增 `tests/lint_errno_usage.sh`：检查 `NM_E*` 的“使用必须有定义”，并报告“已定义但暂未使用”符号。
+- `make test` 已接入 `make lint-error` 前置门禁。

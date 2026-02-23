@@ -67,7 +67,7 @@ KERNEL_SRCS := \
 
 OBJS := $(BOOT_SRCS:%.S=$(BUILD_DIR)/%.o) $(PROC_ASM_SRCS:%.S=$(BUILD_DIR)/%.o) $(KERNEL_SRCS:%.c=$(BUILD_DIR)/%.o)
 
-.PHONY: all clean iso run-bios run-uefi smoke test integration user-tools acceptance
+.PHONY: all clean iso run-bios run-uefi smoke test integration user-tools acceptance lint-error lint-errno
 
 all: $(KERNEL_ELF) iso
 
@@ -100,7 +100,15 @@ run-uefi: all
 smoke: all
 	bash ./tests/smoke_m1.sh $(ISO_IMAGE)
 
+lint-error:
+	bash ./tests/lint_error_model.sh
+	bash ./tests/lint_errno_usage.sh
+
+lint-errno:
+	bash ./tests/lint_errno_usage.sh
+
 test:
+	$(MAKE) lint-error
 	$(CC) -std=c11 -Wall -Wextra -Werror -O2 \
 	  tests/unit/test_pmm_kheap.c kernel/mm/pmm.c kernel/mm/kheap.c kernel/string.c \
 	  -Iinclude -DNEVERMIND_HOST_TEST -o $(BUILD_DIR)/test_pmm_kheap
