@@ -123,7 +123,7 @@ integration: test
 	$(BUILD_DIR)/test_boot_shell
 
 acceptance:
-	./tests/run_full_acceptance.sh
+	bash ./tests/run_full_acceptance.sh
 
 user-tools:
 	$(CC) -std=c11 -Wall -Wextra -Werror -O2 userspace/ping.c \
