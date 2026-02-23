@@ -108,6 +108,18 @@ int tcp_connect(uint32_t dst_ip, uint16_t dst_port, uint16_t src_port)
     struct tcp_conn *cli = alloc_conn();
     struct tcp_conn *srv = alloc_conn();
     if (!cli || !srv) {
+        if (cli) {
+            cli->used = false;
+            cli->state = TCP_CLOSED;
+            cli->peer_id = -1;
+            cli->rx_len = 0;
+        }
+        if (srv) {
+            srv->used = false;
+            srv->state = TCP_CLOSED;
+            srv->peer_id = -1;
+            srv->rx_len = 0;
+        }
         tcp_unlock();
         return -1;
     }

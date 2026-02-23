@@ -6,6 +6,19 @@
 static struct nm_file fd_table[NM_FD_MAX];
 static const struct nm_filesystem *root_fs;
 static struct nm_vnode *root_vnode;
+static volatile uint32_t fs_lock_word;
+
+static inline void fs_lock(void)
+{
+    while (__sync_lock_test_and_set(&fs_lock_word, 1U) != 0U) {
+        __asm__ volatile("pause");
+    }
+}
+
+static inline void fs_unlock(void)
+{
+    __sync_lock_release(&fs_lock_word);
+}
 
 static void copy_name(char *dst, const char *src)
 {
@@ -55,7 +68,12 @@ int fs_path_split(const char *path, char out_parts[][NM_NAME_MAX], int max_parts
 
 static struct nm_vnode *resolve_path(const char *path, bool parent_only, char *leaf_name)
 {
-    if (root_vnode == 0 || root_fs == 0 || path == 0 || path[0] != '/') {
+    fs_lock();
+    const struct nm_filesystem *fs = root_fs;
+    struct nm_vnode *root = root_vnode;
+    fs_unlock();
+
+    if (root == 0 || fs == 0 || path == 0 || path[0] != '/') {
         return 0;
     }
 
@@ -68,13 +86,13 @@ static struct nm_vnode *resolve_path(const char *path, bool parent_only, char *l
         if (leaf_name) {
             leaf_name[0] = '\0';
         }
-        return root_vnode;
+        return root;
     }
 
     int limit = parent_only ? part_count - 1 : part_count;
-    struct nm_vnode *cur = root_vnode;
+    struct nm_vnode *cur = root;
     for (int i = 0; i < limit; i++) {
-        cur = root_fs->ops->lookup(cur, parts[i]);
+        cur = fs->ops->lookup(cur, parts[i]);
         if (cur == 0) {
             return 0;
         }
@@ -102,6 +120,8 @@ static int alloc_fd(void)
 
 void fs_init(void)
 {
+    fs_lock_word = 0;
+    fs_lock();
     root_fs = 0;
     root_vnode = 0;
     for (int i = 0; i < NM_FD_MAX; i++) {
@@ -110,6 +130,7 @@ void fs_init(void)
         fd_table[i].flags = 0;
         fd_table[i].vnode = 0;
     }
+    fs_unlock();
 }
 
 int fs_mount_root(const struct nm_filesystem *fs)
@@ -118,9 +139,16 @@ int fs_mount_root(const struct nm_filesystem *fs)
         return -1;
     }
 
+    struct nm_vnode *mounted_root = fs->ops->mount_root();
+    if (mounted_root == 0) {
+        return -1;
+    }
+
+    fs_lock();
     root_fs = fs;
-    root_vnode = fs->ops->mount_root();
-    return root_vnode ? 0 : -1;
+    root_vnode = mounted_root;
+    fs_unlock();
+    return 0;
 }
 
 int fs_open(const char *path, uint32_t flags, uint32_t mode)
@@ -143,29 +171,39 @@ int fs_open(const char *path, uint32_t flags, uint32_t mode)
         return -1;
     }
 
+    fs_lock();
     int fd = alloc_fd();
     if (fd < 0) {
+        fs_unlock();
         return -1;
     }
+    fs_unlock();
 
     if (node->ops->open && node->ops->open(node, flags) != 0) {
+        fs_lock();
         fd_table[fd].used = false;
+        fs_unlock();
         return -1;
     }
 
+    fs_lock();
     fd_table[fd].vnode = node;
     fd_table[fd].flags = flags;
     fd_table[fd].offset = 0;
+    fs_unlock();
     return fd;
 }
 
 int64_t fs_read(int fd, void *buf, uint64_t len)
 {
+    fs_lock();
     if (fd < 0 || fd >= NM_FD_MAX || !fd_table[fd].used || buf == 0) {
+        fs_unlock();
         return -1;
     }
     struct nm_file *file = &fd_table[fd];
     if (file->vnode == 0 || file->vnode->ops == 0 || file->vnode->ops->read == 0) {
+        fs_unlock();
         return -1;
     }
 
@@ -173,16 +211,20 @@ int64_t fs_read(int fd, void *buf, uint64_t len)
     if (n > 0) {
         file->offset += (uint64_t)n;
     }
+    fs_unlock();
     return n;
 }
 
 int64_t fs_write(int fd, const void *buf, uint64_t len)
 {
+    fs_lock();
     if (fd < 0 || fd >= NM_FD_MAX || !fd_table[fd].used || buf == 0) {
+        fs_unlock();
         return -1;
     }
     struct nm_file *file = &fd_table[fd];
     if (file->vnode == 0 || file->vnode->ops == 0 || file->vnode->ops->write == 0) {
+        fs_unlock();
         return -1;
     }
 
@@ -190,12 +232,15 @@ int64_t fs_write(int fd, const void *buf, uint64_t len)
     if (n > 0) {
         file->offset += (uint64_t)n;
     }
+    fs_unlock();
     return n;
 }
 
 int64_t fs_lseek(int fd, int64_t offset, int whence)
 {
+    fs_lock();
     if (fd < 0 || fd >= NM_FD_MAX || !fd_table[fd].used) {
+        fs_unlock();
         return -1;
     }
 
@@ -206,26 +251,32 @@ int64_t fs_lseek(int fd, int64_t offset, int whence)
     } else if (whence == NM_SEEK_END) {
         base = (int64_t)(file->vnode ? file->vnode->size : 0);
     } else if (whence != NM_SEEK_SET) {
+        fs_unlock();
         return -1;
     }
 
     int64_t next = base + offset;
     if (next < 0) {
+        fs_unlock();
         return -1;
     }
     file->offset = (uint64_t)next;
+    fs_unlock();
     return next;
 }
 
 int fs_close(int fd)
 {
+    fs_lock();
     if (fd < 0 || fd >= NM_FD_MAX || !fd_table[fd].used) {
+        fs_unlock();
         return -1;
     }
     fd_table[fd].used = false;
     fd_table[fd].offset = 0;
     fd_table[fd].flags = 0;
     fd_table[fd].vnode = 0;
+    fs_unlock();
     return 0;
 }
 

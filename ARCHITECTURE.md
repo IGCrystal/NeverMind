@@ -128,7 +128,7 @@ M1 尚未启用中断与多核并发路径，锁策略在 M3/M5 引入。当前�
 ### syscall 框架
 
 - 接口：`syscall_register` / `syscall_dispatch`
-- 错误码：未注册 syscall 返回 `-ENOSYS`（当前编码 `-38`）
+- 错误码：未注册 syscall 返回 `-ENOSYS`（定义见 `include/nm/errno.h`）
 - 示例 syscall：`getpid`, `write(fd=1)`
 
 ## 文件系统（M4）

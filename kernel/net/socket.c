@@ -83,12 +83,21 @@ int nm_bind(int sockfd, const struct nm_sockaddr_in *addr)
         sock_unlock();
         return -1;
     }
+    uint16_t old_port = s->local_port;
     s->local_port = addr->sin_port;
     int type = s->type;
     uint16_t port = s->local_port;
     sock_unlock();
     if (type == NM_SOCK_DGRAM) {
-        return udp_bind(port);
+        if (udp_bind(port) != 0) {
+            sock_lock();
+            s = get_sock(sockfd);
+            if (s) {
+                s->local_port = old_port;
+            }
+            sock_unlock();
+            return -1;
+        }
     }
     return 0;
 }
@@ -143,6 +152,7 @@ int nm_accept(int sockfd, struct nm_sockaddr_in *addr)
     int child = alloc_socket_unlocked(NM_SOCK_STREAM, 0);
     if (child < 0) {
         sock_unlock();
+        (void)tcp_close(conn);
         return -1;
     }
     socks[child].local_port = port;
@@ -167,9 +177,11 @@ int nm_connect(int sockfd, const struct nm_sockaddr_in *addr)
     }
 
     uint16_t local_port = s->local_port;
+    bool local_port_was_auto = false;
     if (local_port == 0) {
         local_port = eph_port++;
         s->local_port = local_port;
+        local_port_was_auto = true;
     }
     uint32_t dst_ip = addr->sin_addr;
     uint16_t dst_port = addr->sin_port;
@@ -177,6 +189,14 @@ int nm_connect(int sockfd, const struct nm_sockaddr_in *addr)
 
     int conn = tcp_connect(dst_ip, dst_port, local_port);
     if (conn < 0) {
+        if (local_port_was_auto) {
+            sock_lock();
+            s = get_sock(sockfd);
+            if (s && s->local_port == local_port) {
+                s->local_port = 0;
+            }
+            sock_unlock();
+        }
         return -1;
     }
 
@@ -215,12 +235,17 @@ int64_t nm_sendto(int sockfd, const void *buf, uint64_t len, const struct nm_soc
         uint32_t dst_ip = addr->sin_addr;
         uint16_t dst_port = addr->sin_port;
         sock_unlock();
-        (void)udp_bind(src_port);
+        if (udp_bind(src_port) != 0) {
+            return -1;
+        }
         return udp_sendto(src_port, dst_ip, dst_port, buf, (uint16_t)len);
     }
 
     int conn_id = s->tcp_conn_id;
     sock_unlock();
+    if (conn_id <= 0) {
+        return -1;
+    }
     return tcp_send(conn_id, buf, (uint16_t)len);
 }
 
@@ -249,6 +274,9 @@ int64_t nm_recvfrom(int sockfd, void *buf, uint64_t len, struct nm_sockaddr_in *
 
     int conn_id = s->tcp_conn_id;
     sock_unlock();
+    if (conn_id <= 0) {
+        return -1;
+    }
     return tcp_recv(conn_id, buf, (uint16_t)len);
 }
 

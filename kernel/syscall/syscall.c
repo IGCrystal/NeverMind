@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #include "nm/console.h"
+#include "nm/errno.h"
 #include "nm/exec.h"
 #include "nm/fd.h"
 #include "nm/fs.h"
@@ -23,7 +24,7 @@ static int64_t sys_getpid(uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, ui
 
     const struct nm_task *cur = task_current();
     if (cur == 0) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
     return cur->pid;
 }
@@ -36,12 +37,12 @@ static int64_t sys_write(uint64_t fd, uint64_t buf, uint64_t len, uint64_t a4, u
     (void)a6;
 
     if (buf == 0) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     struct nm_task *cur = task_current();
     if (cur == 0) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     int64_t n = nm_fd_write(cur, (int32_t)fd, (const void *)(uintptr_t)buf, len);
@@ -50,7 +51,7 @@ static int64_t sys_write(uint64_t fd, uint64_t buf, uint64_t len, uint64_t a4, u
     }
 
     if (fd != 1) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
 #ifdef NEVERMIND_HOST_TEST
@@ -72,12 +73,12 @@ static int64_t sys_read(uint64_t fd, uint64_t buf, uint64_t len, uint64_t a4, ui
     (void)a6;
 
     if (buf == 0) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     struct nm_task *cur = task_current();
     if (cur == 0) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     return nm_fd_read(cur, (int32_t)fd, (void *)(uintptr_t)buf, len);
@@ -94,7 +95,7 @@ static int64_t sys_close(uint64_t fd, uint64_t a2, uint64_t a3, uint64_t a4, uin
 
     struct nm_task *cur = task_current();
     if (cur == 0 || fd >= (uint64_t)NM_MAX_FDS) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     return nm_fd_close(cur, (int32_t)fd);
@@ -124,7 +125,7 @@ static int64_t sys_waitpid(uint64_t pid, uint64_t status_ptr, uint64_t a3, uint6
     int32_t status = 0;
     int32_t got = proc_waitpid((int32_t)pid, &status);
     if (got < 0) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     if (status_ptr != 0) {
@@ -145,13 +146,13 @@ static int64_t sys_pipe(uint64_t fds_ptr, uint64_t a2, uint64_t a3, uint64_t a4,
 
     struct nm_task *cur = task_current();
     if (cur == 0 || fds_ptr == 0) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     int32_t rd = -1;
     int32_t wr = -1;
     if (nm_fd_pipe(cur, &rd, &wr) != 0) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     int32_t *fds = (int32_t *)(uintptr_t)fds_ptr;
@@ -170,7 +171,7 @@ static int64_t sys_dup2(uint64_t oldfd, uint64_t newfd, uint64_t a3, uint64_t a4
 
     struct nm_task *cur = task_current();
     if (cur == 0 || oldfd >= (uint64_t)NM_MAX_FDS || newfd >= (uint64_t)NM_MAX_FDS) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     return nm_fd_dup2(cur, (int32_t)oldfd, (int32_t)newfd);
@@ -186,7 +187,7 @@ static int64_t sys_fd_cloexec(uint64_t fd, uint64_t enabled, uint64_t a3, uint64
 
     struct nm_task *cur = task_current();
     if (cur == 0 || fd >= (uint64_t)NM_MAX_FDS) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     if (enabled == 0 || enabled == 1) {
@@ -197,7 +198,7 @@ static int64_t sys_fd_cloexec(uint64_t fd, uint64_t enabled, uint64_t a3, uint64
         return nm_fd_get_cloexec(cur, (int32_t)fd);
     }
 
-    return -1;
+    return NM_ERR(NM_EFAIL);
 }
 
 static int64_t sys_fork(uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
@@ -212,12 +213,12 @@ static int64_t sys_fork(uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint
 
     struct nm_task *parent = task_current();
     if (parent == 0) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     struct nm_task *child = proc_fork_current();
     if (child == 0) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     (void)nm_fd_on_fork_child(child);
@@ -234,13 +235,13 @@ static int64_t sys_exec(uint64_t name_ptr, uint64_t argv_ptr, uint64_t envp_ptr,
     (void)a6;
 
     if (name_ptr == 0) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     const char *name = (const char *)(uintptr_t)name_ptr;
     struct nm_stat st;
     if (fs_stat(name, &st) != 0) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     const char *const *argv = (const char *const *)(uintptr_t)argv_ptr;
@@ -259,7 +260,7 @@ static int64_t sys_exec(uint64_t name_ptr, uint64_t argv_ptr, uint64_t envp_ptr,
     }
 
     if (final_entry == 0) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
 
     nm_fd_close_on_exec(task_current());
@@ -290,7 +291,7 @@ void syscall_init(void)
 int syscall_register(uint64_t nr, nm_syscall_handler_t fn)
 {
     if (nr >= NM_SYSCALL_MAX || fn == 0) {
-        return -1;
+        return NM_ERR(NM_EFAIL);
     }
     syscall_table[nr] = fn;
     return 0;
@@ -300,7 +301,7 @@ int64_t syscall_dispatch(uint64_t nr, uint64_t arg1, uint64_t arg2, uint64_t arg
                          uint64_t arg5, uint64_t arg6)
 {
     if (nr >= NM_SYSCALL_MAX || syscall_table[nr] == 0) {
-        return -38;
+        return NM_ERR(NM_ENOSYS);
     }
 
     return syscall_table[nr](arg1, arg2, arg3, arg4, arg5, arg6);
