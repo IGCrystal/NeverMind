@@ -62,17 +62,19 @@ make smoke
 [00.000200] idt ready
 [00.000300] tss ready
 [00.000400] mm ready: free_pages=... used_pages=...
-NeverMind kernel (M1)
+[00.000500] proc+sched ready: policy=RR
+[00.000600] syscall ready
+NeverMind kernel (M2)
 arch: x86_64
 boot: BIOS+UEFI via GRUB multiboot2
-[00.001000] NeverMind: M2 mm boot ok
+[00.001000] NeverMind: M3 proc boot ok
 ```
 
 ## 里程碑
 
 - M1 (boot): 启动链路 + long mode + early init + CI smoke
 - M2 (mm): 物理页分配（bitmap）+ 基础 VMM（4KB/2MB map）+ `kmalloc/kfree` + 单测
-- M3 (proc): 任务模型、上下文切换、调度与 syscall
+- M3 (proc): task_struct + kernel thread + RR/CFS(近似) + syscall 分发 + 调度单测
 - M4 (fs): VFS + tmpfs + ext2
 - M5 (drivers): timer/keyboard/pci/网卡基础
 - M6 (network): Ethernet/IPv4/UDP/TCP 最小栈

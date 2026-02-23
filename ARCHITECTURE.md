@@ -12,6 +12,15 @@ M2 引入内存管理基础能力：
 2. VMM：基于四级页表的最小映射接口，支持 4KB 页与 2MB 大页映射。
 3. KHeap：`kmalloc/kfree` 初版，面向内核早期对象分配。
 
+## M3 范围
+
+M3 引入进程线程与系统调用骨架：
+
+1. `task_struct`（寄存器集、CR3、FD 表、信号掩码、调度参数）
+2. 调度器：RR 与近似 CFS
+3. 上下文切换入口：x86_64 汇编 `nm_context_switch`
+4. syscall 分发层：`getpid` 与 `write` 示例
+
 ## 启动链路
 
 1. BIOS 或 UEFI 固件进入 GRUB。
@@ -54,10 +63,30 @@ M2 引入内存管理基础能力：
 
 M1 尚未启用中断与多核并发路径，锁策略在 M3/M5 引入。当前所有初始化流程串行执行。
 
+## 任务与调度（M3）
+
+### 任务模型
+
+- 数据结构：`struct nm_task`
+- 必要字段：`regs`、`cr3`、`fd_table`、`signal_mask`、`sched`
+- 线程类型：当前实现 kernel thread（用户态线程在 M7 接入）
+
+### 调度策略
+
+- RR：固定时间片（默认 4 ticks）循环选择可运行任务
+- CFS(近似)：选择最小 `vruntime` 任务运行
+- `vruntime` 更新：$\Delta v = \frac{ticks \times 1024}{weight(priority)}$
+
+### syscall 框架
+
+- 接口：`syscall_register` / `syscall_dispatch`
+- 错误码：未注册 syscall 返回 `-ENOSYS`（当前编码 `-38`）
+- 示例 syscall：`getpid`, `write(fd=1)`
+
 ## 测试策略（M1/M2）
 
 - 构建验证：`make all`
-- 单元测试：`make test`（`pmm`/`kmalloc` 用户态模拟）
+- 单元测试：`make test`（`pmm`/`kmalloc` + `scheduler` 用户态模拟）
 - 启动验证：`tests/smoke_m1.sh`
-- 验证条件：QEMU 串口日志包含 `NeverMind: M2 mm boot ok`
+- 验证条件：QEMU 串口日志包含 `NeverMind: M3 proc boot ok`
 - CI 失败策略：任一步骤失败即失败；失败时上传 QEMU 日志作为排障依据。

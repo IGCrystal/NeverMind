@@ -4,7 +4,25 @@
 #include "nm/gdt.h"
 #include "nm/idt.h"
 #include "nm/mm.h"
+#include "nm/proc.h"
+#include "nm/syscall.h"
 #include "nm/tss.h"
+
+static void idle_thread(void *arg)
+{
+    (void)arg;
+    for (;;) {
+        __asm__ volatile("hlt");
+    }
+}
+
+static void worker_thread(void *arg)
+{
+    (void)arg;
+    for (;;) {
+        __asm__ volatile("pause");
+    }
+}
 
 static void console_write_u64(uint64_t value)
 {
@@ -55,8 +73,17 @@ void kmain(uint64_t mb2_info)
     console_write_u64(stats.used_frames);
     console_write("\n");
 
+    proc_init();
+    (void)task_create_kernel_thread("idle/0", idle_thread, 0);
+    (void)task_create_kernel_thread("kworker/0", worker_thread, 0);
+    sched_init(NM_SCHED_RR);
+    console_write("[00.000500] proc+sched ready: policy=RR\n");
+
+    syscall_init();
+    console_write("[00.000600] syscall ready\n");
+
     kernel_banner();
-    console_write("[00.001000] NeverMind: M2 mm boot ok\n");
+    console_write("[00.001000] NeverMind: M3 proc boot ok\n");
 
     for (;;) {
         __asm__ volatile("hlt");

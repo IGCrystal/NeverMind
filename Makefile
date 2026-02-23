@@ -15,6 +15,7 @@ KERNEL_MAP := $(BUILD_DIR)/kernel.map
 ISO_IMAGE := $(BUILD_DIR)/nevermind-m1.iso
 
 BOOT_SRCS := boot/entry.S
+PROC_ASM_SRCS := kernel/proc/switch.S
 KERNEL_SRCS := \
 	kernel/kmain.c \
 	kernel/console.c \
@@ -24,9 +25,12 @@ KERNEL_SRCS := \
 	kernel/string.c \
 	kernel/mm/pmm.c \
 	kernel/mm/vmm.c \
-	kernel/mm/kheap.c
+	kernel/mm/kheap.c \
+	kernel/proc/task.c \
+	kernel/proc/sched.c \
+	kernel/syscall/syscall.c
 
-OBJS := $(BOOT_SRCS:%.S=$(BUILD_DIR)/%.o) $(KERNEL_SRCS:%.c=$(BUILD_DIR)/%.o)
+OBJS := $(BOOT_SRCS:%.S=$(BUILD_DIR)/%.o) $(PROC_ASM_SRCS:%.S=$(BUILD_DIR)/%.o) $(KERNEL_SRCS:%.c=$(BUILD_DIR)/%.o)
 
 .PHONY: all clean iso run-bios run-uefi smoke test
 
@@ -66,6 +70,10 @@ test:
 	  tests/unit/test_pmm_kheap.c kernel/mm/pmm.c kernel/mm/kheap.c kernel/string.c \
 	  -Iinclude -DNEVERMIND_HOST_TEST -o $(BUILD_DIR)/test_pmm_kheap
 	$(BUILD_DIR)/test_pmm_kheap
+	$(CC) -std=c11 -Wall -Wextra -Werror -O2 \
+	  tests/unit/test_sched.c kernel/proc/task.c kernel/proc/sched.c \
+	  -Iinclude -DNEVERMIND_HOST_TEST -o $(BUILD_DIR)/test_sched
+	$(BUILD_DIR)/test_sched
 
 clean:
 	rm -rf $(BUILD_DIR)
