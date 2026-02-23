@@ -1,26 +1,6 @@
-#include <stdint.h>
-
 #include "nm/tss.h"
 
-struct __attribute__((packed)) tss64 {
-    uint32_t reserved0;
-    uint64_t rsp0;
-    uint64_t rsp1;
-    uint64_t rsp2;
-    uint64_t reserved1;
-    uint64_t ist1;
-    uint64_t ist2;
-    uint64_t ist3;
-    uint64_t ist4;
-    uint64_t ist5;
-    uint64_t ist6;
-    uint64_t ist7;
-    uint64_t reserved2;
-    uint16_t reserved3;
-    uint16_t iopb;
-};
-
-static struct tss64 kernel_tss;
+static struct nm_tss64 kernel_tss __attribute__((aligned(16)));
 
 uint64_t tss_base_address(void)
 {

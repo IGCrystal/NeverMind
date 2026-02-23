@@ -6,6 +6,7 @@ LOG_DIR="build/test-logs"
 mkdir -p "$LOG_DIR"
 
 BIOS_LOG="$LOG_DIR/qemu-bios.log"
+BIOS_DEBUG_LOG="$LOG_DIR/qemu-bios-debug.log"
 UEFI_LOG="$LOG_DIR/qemu-uefi.log"
 SMOKE_MARKER='NeverMind: M8 hardening\+ci ready|\[00\.000300\] tss ready'
 SMOKE_TIMEOUT="${SMOKE_TIMEOUT:-60s}"
@@ -41,10 +42,13 @@ run_smoke_qemu "$BIOS_LOG" "$SMOKE_TIMEOUT" \
 
 if ! has_smoke_marker "$BIOS_LOG"; then
   echo "BIOS smoke marker not found in $BIOS_LOG, retrying with longer timeout (${SMOKE_RETRY_TIMEOUT})"
+  rm -f "$BIOS_DEBUG_LOG"
   run_smoke_qemu "$BIOS_LOG" "$SMOKE_RETRY_TIMEOUT" \
     -machine q35 \
     -m 512M \
     -smp 1 \
+    -d int,guest_errors \
+    -D "$BIOS_DEBUG_LOG" \
     -cdrom "$ISO"
 fi
 
@@ -54,6 +58,11 @@ if ! has_smoke_marker "$BIOS_LOG"; then
     echo "---- BIOS LOG (tail) ----"
     tail -n 120 "$BIOS_LOG" || true
     echo "-------------------------"
+  fi
+  if [[ -f "$BIOS_DEBUG_LOG" ]]; then
+    echo "---- BIOS DEBUG LOG (tail) ----"
+    tail -n 120 "$BIOS_DEBUG_LOG" || true
+    echo "-------------------------------"
   fi
   exit 1
 fi

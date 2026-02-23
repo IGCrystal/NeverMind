@@ -1,6 +1,7 @@
 #include <stdint.h>
 
 #include "nm/gdt.h"
+#include "nm/tss.h"
 
 struct __attribute__((packed)) gdt_entry {
     uint16_t limit_low;
@@ -22,14 +23,12 @@ struct __attribute__((packed)) tss_desc {
     uint32_t reserved;
 };
 
-extern uint64_t tss_base_address(void);
-
 static struct {
     struct gdt_entry null;
     struct gdt_entry code;
     struct gdt_entry data;
     struct tss_desc tss;
-} __attribute__((packed)) gdt;
+} __attribute__((packed, aligned(16))) gdt;
 
 void gdt_init(void)
 {
@@ -52,7 +51,7 @@ void gdt_init(void)
     };
 
     uint64_t base = tss_base_address();
-    uint32_t limit = 0x67;
+    uint32_t limit = (uint32_t)(sizeof(struct nm_tss64) - 1);
 
     gdt.tss.limit_low = limit & 0xFFFF;
     gdt.tss.base_low = base & 0xFFFF;
