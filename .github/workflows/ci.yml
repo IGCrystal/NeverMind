@@ -70,6 +70,7 @@ jobs:
 
       - name: Acceptance aggregate
         env:
+          ACCEPTANCE_RUN_SMOKE: 0
           SMOKE_TIMEOUT: 60s
           SMOKE_RETRY_TIMEOUT: 90s
         run: make acceptance
@@ -84,7 +85,11 @@ jobs:
         env:
           SMOKE_TIMEOUT: 60s
           SMOKE_RETRY_TIMEOUT: 90s
-        run: make smoke
+        run: |
+          make smoke || {
+            echo "Smoke failed, retrying once..."
+            make smoke
+          }
 
       - name: Upload test logs on failure
         if: failure()

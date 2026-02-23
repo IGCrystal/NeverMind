@@ -5,6 +5,7 @@ DATE_TAG="$(date +%Y%m%d)"
 RESULT_DIR="tests/results-${DATE_TAG}"
 SUMMARY_FILE="${RESULT_DIR}/summary.txt"
 BUILD_LOG="${RESULT_DIR}/build.log"
+ACCEPTANCE_RUN_SMOKE="${ACCEPTANCE_RUN_SMOKE:-1}"
 
 mkdir -p "${RESULT_DIR}"
 
@@ -37,7 +38,12 @@ run_step "clean+build" make clean all
 run_step "unit-tests" make test
 run_step "integration-tests" make integration
 run_step "userspace-tools" make user-tools
-run_step "smoke-tests" make smoke
+
+if [[ "${ACCEPTANCE_RUN_SMOKE}" == "1" ]]; then
+  run_step "smoke-tests" make smoke
+else
+  echo "SKIP: smoke-tests (ACCEPTANCE_RUN_SMOKE=${ACCEPTANCE_RUN_SMOKE})" | tee -a "${SUMMARY_FILE}"
+fi
 
 if [[ -d build/test-logs ]]; then
   cp -f build/test-logs/*.log "${RESULT_DIR}/" 2>/dev/null || true
