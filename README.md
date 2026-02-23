@@ -24,7 +24,14 @@ GPLv2-compatible，见 `LICENSE`。
 - Ubuntu: `./scripts/setup_ubuntu.sh`
 - Windows + WSL: `powershell -ExecutionPolicy Bypass -File .\scripts\setup_wsl.ps1`
 
-WSL 脚本会自动选择已安装发行版（如 `Ubuntu-18.04`），也可手动传参：
+若 WSL 提示 `Unknown key 'wsl2.kernelCommandLine'`，可执行：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\setup_wsl.ps1 -FixWslConf
+wsl --shutdown
+```
+
+WSL 脚本默认使用“默认发行版”，也可手动传参：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\run_acceptance_wsl.ps1 -Distro Ubuntu-18.04
@@ -166,6 +173,7 @@ boot: BIOS+UEFI via GRUB multiboot2
 可直接运行以下任务：
 
 - `NeverMind: Setup WSL Toolchain`
+- `NeverMind: Setup WSL Toolchain (Fix wsl.conf)`
 - `NeverMind: Build`
 - `NeverMind: Unit Tests`
 - `NeverMind: Integration Tests`

@@ -8,6 +8,12 @@
       "problemMatcher": []
     },
     {
+      "label": "NeverMind: Setup WSL Toolchain (Fix wsl.conf)",
+      "type": "shell",
+      "command": "powershell -ExecutionPolicy Bypass -File .\\scripts\\setup_wsl.ps1 -FixWslConf",
+      "problemMatcher": []
+    },
+    {
       "label": "NeverMind: Build",
       "type": "shell",
       "command": "make clean all",
